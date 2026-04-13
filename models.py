@@ -15,7 +15,13 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   email TEXT UNIQUE NOT NULL,
+                  password_hash TEXT DEFAULT NULL,
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    # 既存テーブルにpassword_hashカラムがなければ追加
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT NULL")
+    except:
+        pass
     c.execute('''CREATE TABLE IF NOT EXISTS otp_codes
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   email TEXT NOT NULL, code TEXT NOT NULL,

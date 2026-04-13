@@ -6,23 +6,61 @@
     <title>ログイン</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: serif; height: 100dvh; display: flex; align-items: center; justify-content: center; }
+
+        /* サイドメニュー */
+        #side-menu { position: fixed; left: -260px; width: 250px; height: 100%; background: #111; z-index: 300; transition: 0.3s; padding-top: 60px; }
+        #side-menu a { display: block; padding: 20px; color: #fff; text-decoration: none; border-bottom: 1px solid #222; transition: background 0.2s, color 0.2s; }
+        #side-menu a:hover { background: rgba(255,255,255,0.05); color: #00f2ff; }
+        #overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:250; }
+        #menu-btn { position: fixed; top: 16px; left: 16px; font-size: 1.5rem; cursor: pointer; z-index: 999; }
+
         .box { border: 1px solid #333; padding: 40px; width: 320px; box-sizing: border-box; }
         h2 { font-size: 1rem; color: #888; margin-bottom: 30px; letter-spacing: 0.2em; }
-        input[type="email"] { width: 100%; background: #000; border: none; border-bottom: 1px solid #555; color: #fff; font-size: 1rem; padding: 10px 0; outline: none; box-sizing: border-box; }
-        button { margin-top: 30px; width: 100%; background: #000; color: #00f2ff; border: 1px solid #00f2ff; padding: 10px; font-size: 0.9rem; cursor: pointer; letter-spacing: 0.1em; }
+        input { width: 100%; background: #000; border: none; border-bottom: 1px solid #555; color: #fff; font-size: 1rem; padding: 10px 0; outline: none; box-sizing: border-box; font-family: serif; margin-bottom: 16px; }
+        button { margin-top: 14px; width: 100%; background: #000; color: #00f2ff; border: 1px solid #00f2ff; padding: 10px; font-size: 0.9rem; cursor: pointer; letter-spacing: 0.1em; font-family: serif; }
         button:hover { background: rgba(0,242,255,0.1); }
         .error { color: #ff4444; font-size: 0.8rem; margin-top: 15px; }
+        .sub { margin-top: 16px; text-align: center; font-size: 0.75rem; color: #555; }
+        .sub a { color: #555; text-decoration: none; }
+        .sub a:hover { color: #fff; }
+        .divider { border: none; border-top: 1px solid #222; margin: 20px 0; }
+        .otp-btn { background: none; border: 1px solid #333; color: #555; font-size: 0.8rem; padding: 8px; cursor: pointer; width: 100%; font-family: serif; margin-top: 8px; }
+        .otp-btn:hover { border-color: #555; color: #888; }
     </style>
 </head>
 <body>
-    <div onclick="window.location.href='/'" style="position:fixed;top:16px;left:16px;color:#fff;font-size:1.5rem;cursor:pointer;z-index:999;">☰</div>
+    <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    <div id="overlay" onclick="closeMenu()"></div>
+    <div id="side-menu">
+        <a href="/home">ホーム</a>
+        <a href="/login?next=/" style="color:#00f2ff;">RANDOM（要ログイン）</a>
+        <a href="/login" style="color:#00f2ff;">ログイン</a>
+    </div>
+
     <div class="box">
         <h2>LOGIN</h2>
         <form method="POST" action="/login?next={{ next }}">
+            <input type="hidden" name="mode" id="mode-input" value="password">
             <input type="email" name="email" placeholder="メールアドレス" required autofocus>
-            <button type="submit">コードを送信</button>
+            <input type="password" name="password" id="pw-field" placeholder="パスワード">
+            <button type="submit">ログイン</button>
+            <button type="submit" class="otp-btn" onclick="document.getElementById('mode-input').value='otp';document.getElementById('pw-field').removeAttribute('required')">メールでコードを送る</button>
             {% if error %}<div class="error">{{ error }}</div>{% endif %}
         </form>
+        <div class="sub"><a href="/reset-password">パスワードを忘れた方はこちら</a></div>
     </div>
+
+    <script>
+        function toggleMenu() {
+            const m = document.getElementById('side-menu');
+            const o = document.getElementById('overlay');
+            if (m.style.left === '0px') { m.style.left = '-260px'; o.style.display = 'none'; }
+            else { m.style.left = '0px'; o.style.display = 'block'; }
+        }
+        function closeMenu() {
+            document.getElementById('side-menu').style.left = '-260px';
+            document.getElementById('overlay').style.display = 'none';
+        }
+    </script>
 </body>
 </html>

@@ -1,4 +1,6 @@
 from flask import Flask, render_template, redirect, request, session, jsonify
+import hashlib
+import secrets
 import sqlite3
 import os
 import random
@@ -73,6 +75,8 @@ def get_user_genres(email):
 @app.route('/')
 def index():
     user = get_current_user()
+    if not user:
+        return redirect('/login?next=/')
     if should_fetch():
         NewsManager.fetch_and_store()
     conn = sqlite3.connect(DB_PATH)
@@ -132,8 +136,6 @@ def genre():
 # ---------------- ホーム（無限ニュース）----------------
 @app.route('/home')
 def home():
-    if not get_current_user():
-        return redirect('/login?next=/home')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
@@ -227,29 +229,139 @@ def summarize(article_id):
     return f"【AI要約】\n{summary}"
 
 # ---------------- ログイン ----------------
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     next_url = request.args.get('next', '/')
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        mode = request.form.get('mode', 'password')
+
         if not email:
             return render_template('login.html', error="メールアドレスを入力してください", next=next_url)
-        # OTPを生成して送信
-        code = str(random.randint(100000, 999999))
-        expires_at = int(time.time()) + 300  # 5分
+
+        if mode == 'otp':
+            # OTPモード
+            code = str(random.randint(100000, 999999))
+            expires_at = int(time.time()) + 300
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+            conn.commit()
+            conn.close()
+            try:
+                send_otp_email(email, code)
+            except Exception as e:
+                return render_template('login.html', error=f"メール送信に失敗しました: {e}", next=next_url)
+            session['otp_email'] = email
+            session['otp_next'] = next_url
+            return redirect('/otp')
+        else:
+            # パスワードモード
+            if not password:
+                return render_template('login.html', error="パスワードを入力してください", next=next_url)
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT password_hash FROM users WHERE email=?", (email,))
+            row = c.fetchone()
+            conn.close()
+            if not row:
+                return render_template('login.html', error="このメールアドレスは登録されていません", next=next_url)
+            if not row[0]:
+                return render_template('login.html', error="パスワードが設定されていません。OTPでログインしてください", next=next_url)
+            if row[0] != hash_password(password):
+                return render_template('login.html', error="パスワードが違います", next=next_url)
+            session['user_email'] = email
+            return redirect(next_url)
+
+    return render_template('login.html', next=next_url)
+
+# ---------------- パスワード設定 ----------------
+@app.route('/set-password', methods=['GET', 'POST'])
+def set_password():
+    user = get_current_user()
+    if not user:
+        return redirect('/login')
+    if request.method == 'POST':
+        pw = request.form.get('password', '').strip()
+        pw2 = request.form.get('password2', '').strip()
+        if not pw or len(pw) < 6:
+            return render_template('set_password.html', error="6文字以上で入力してください")
+        if pw != pw2:
+            return render_template('set_password.html', error="パスワードが一致しません")
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+        c.execute("UPDATE users SET password_hash=? WHERE email=?", (hash_password(pw), user))
         conn.commit()
         conn.close()
+        return render_template('set_password.html', success="パスワードを設定しました")
+    return render_template('set_password.html')
+
+# ---------------- パスワードリセット ----------------
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        if not email:
+            return render_template('reset_password.html', error="メールアドレスを入力してください")
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return render_template('reset_password.html', error="このメールアドレスは登録されていません")
+        token = secrets.token_urlsafe(32)
+        expires_at = int(time.time()) + 1800  # 30分
+        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, f"RESET:{token}", expires_at))
+        conn.commit()
+        conn.close()
+        reset_url = request.host_url + "reset-password/confirm?token=" + token + "&email=" + email
         try:
-            send_otp_email(email, code)
+            sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+            from sendgrid.helpers.mail import Mail
+            message = Mail(
+                from_email=FROM_EMAIL,
+                to_emails=email,
+                subject="【ニュースアプリ】パスワードリセット",
+                plain_text_content=f"以下のリンクからパスワードをリセットしてください（30分有効）:
+
+{reset_url}"
+            )
+            sg.send(message)
         except Exception as e:
-            return render_template('login.html', error=f"メール送信に失敗しました: {e}", next=next_url)
-        session['otp_email'] = email
-        session['otp_next'] = next_url
-        return redirect('/otp')
-    return render_template('login.html', next=next_url)
+            return render_template('reset_password.html', error=f"メール送信に失敗しました: {e}")
+        return render_template('reset_password.html', success="リセットリンクをメールに送信しました")
+    return render_template('reset_password.html')
+
+@app.route('/reset-password/confirm', methods=['GET', 'POST'])
+def reset_password_confirm():
+    token = request.args.get('token', '')
+    email = request.args.get('email', '')
+    if request.method == 'POST':
+        pw = request.form.get('password', '').strip()
+        pw2 = request.form.get('password2', '').strip()
+        if not pw or len(pw) < 6:
+            return render_template('reset_confirm.html', error="6文字以上で入力してください", token=token, email=email)
+        if pw != pw2:
+            return render_template('reset_confirm.html', error="パスワードが一致しません", token=token, email=email)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>?",
+                  (email, f"RESET:{token}", int(time.time())))
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return render_template('reset_confirm.html', error="リンクが無効か期限切れです", token=token, email=email)
+        c.execute("UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
+        c.execute("UPDATE users SET password_hash=? WHERE email=?", (hash_password(pw), email))
+        conn.commit()
+        conn.close()
+        return redirect('/login')
+    return render_template('reset_confirm.html', token=token, email=email)
 
 # ---------------- OTP確認 ----------------
 @app.route('/otp', methods=['GET', 'POST'])
