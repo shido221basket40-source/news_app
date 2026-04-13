@@ -136,16 +136,27 @@ def genre():
 # ---------------- ホーム（無限ニュース）----------------
 @app.route('/home')
 def home():
+    date_filter = request.args.get('date', 'all')
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("""
-        SELECT id, title, source, link, is_read, is_saved
-        FROM articles
-        ORDER BY fetched_at DESC
-    """)
+    if date_filter == 'today':
+        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
+                     WHERE fetched_at >= datetime('now', 'start of day')
+                     ORDER BY fetched_at DESC""")
+    elif date_filter == 'week':
+        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
+                     WHERE fetched_at >= datetime('now', '-7 days')
+                     ORDER BY fetched_at DESC""")
+    elif date_filter == 'month':
+        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
+                     WHERE fetched_at >= datetime('now', '-30 days')
+                     ORDER BY fetched_at DESC""")
+    else:
+        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
+                     ORDER BY fetched_at DESC""")
     articles = c.fetchall()
     conn.close()
-    return render_template('home.html', articles=articles, user=get_current_user())
+    return render_template('home.html', articles=articles, user=get_current_user(), date_filter=date_filter)
 
 # ---------------- SAVED ----------------
 @app.route('/saved')
