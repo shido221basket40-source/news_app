@@ -93,8 +93,8 @@ def index():
                 return []
             return [a for a in articles if keyword in (a[1] or '')]
 
-        g1_articles = filter_by_genre(all_articles, genre1)
-        g2_articles = filter_by_genre(all_articles, genre2)
+        g1_articles = filter_by_genre(all_articles, genre1)[:1]
+        g2_articles = filter_by_genre(all_articles, genre2)[:1]
         used_ids = {a[0] for a in g1_articles + g2_articles}
         random_articles = [a for a in all_articles if a[0] not in used_ids]
 
@@ -104,7 +104,8 @@ def index():
     else:
         genre1, genre2 = '', ''
         g1_articles, g2_articles = [], []
-        articles = all_articles
+        import random as rnd
+        articles = rnd.sample(all_articles, min(3, len(all_articles))) if all_articles else []
 
     return render_template('index.html',
         articles=articles,
