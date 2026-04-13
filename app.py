@@ -373,13 +373,11 @@ def otp():
             return render_template('otp.html', error="コードが違うか期限切れです", email=email)
         c.execute("UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
         c.execute("INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
-        conn.commit()
-        conn.close()
         # 新規登録時はパスワードも保存
         reg_pw = session.pop('register_password', None)
         if reg_pw:
             c.execute("UPDATE users SET password_hash=? WHERE email=?", (reg_pw, email))
-            conn.commit()
+        conn.commit()
         conn.close()
         session['user_email'] = email
         session.pop('otp_email', None)
