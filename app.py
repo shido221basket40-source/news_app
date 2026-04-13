@@ -141,8 +141,9 @@ def home():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if date_filter == 'today':
+        # 最近24時間（UTC基準）
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     WHERE fetched_at >= datetime('now', 'start of day')
+                     WHERE fetched_at >= datetime('now', '-1 days')
                      ORDER BY fetched_at DESC LIMIT 50""")
     elif date_filter == 'week':
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
