@@ -73,8 +73,6 @@ def get_user_genres(email):
 @app.route('/')
 def index():
     user = get_current_user()
-    if not user:
-        return redirect('/login?next=/')
     if should_fetch():
         NewsManager.fetch_and_store()
     conn = sqlite3.connect(DB_PATH)
@@ -83,23 +81,26 @@ def index():
     all_articles = c.fetchall()
     conn.close()
 
-    genre1, genre2 = get_user_genres(user)
+    if user:
+        genre1, genre2 = get_user_genres(user)
 
-    # ジャンル別に分類
-    def filter_by_genre(articles, keyword):
-        if not keyword:
-            return []
-        return [a for a in articles if keyword in (a[1] or '')]
+        def filter_by_genre(articles, keyword):
+            if not keyword:
+                return []
+            return [a for a in articles if keyword in (a[1] or '')]
 
-    g1_articles = filter_by_genre(all_articles, genre1)
-    g2_articles = filter_by_genre(all_articles, genre2)
-    used_ids = {a[0] for a in g1_articles + g2_articles}
-    random_articles = [a for a in all_articles if a[0] not in used_ids]
+        g1_articles = filter_by_genre(all_articles, genre1)
+        g2_articles = filter_by_genre(all_articles, genre2)
+        used_ids = {a[0] for a in g1_articles + g2_articles}
+        random_articles = [a for a in all_articles if a[0] not in used_ids]
 
-    import random as rnd
-    random_pick = rnd.sample(random_articles, min(1, len(random_articles))) if random_articles else []
-
-    articles = g1_articles + g2_articles + random_pick
+        import random as rnd
+        random_pick = rnd.sample(random_articles, min(1, len(random_articles))) if random_articles else []
+        articles = g1_articles + g2_articles + random_pick
+    else:
+        genre1, genre2 = '', ''
+        g1_articles, g2_articles = [], []
+        articles = all_articles
 
     return render_template('index.html',
         articles=articles,
