@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
-    <title>Minimalist Trio</title>
+    <title>RANDOM</title>
     <style>
         body {
             margin: 0;
@@ -208,7 +208,7 @@ body.loading {
     <div id="ai-btn" onclick="askAI()">AI要約</div>
 
     <div id="side-menu">
-        <a href="/">HOME</a>
+        <a href="/">RANDOM</a>
         <a href="/saved">SAVED</a>
         {% if user %}
         <a href="/logout" style="color:#ff4444;border-top:1px solid #222;">ログアウト</a>
@@ -229,8 +229,8 @@ body.loading {
         {% for a in articles %}
         <div class="card {{ 'active' if loop.first else '' }} 
                     {{ 'is-read' if a[4] else '' }} 
-                    {{ 'is-home' if page_title == 'HOME' else 'is-saved-page' }} 
-                    {{ 'has-saved-mark' if a[4] and page_title == 'HOME' else '' }}" data-id="{{ a[0] }}">
+                    {{ 'is-home' if page_title == 'RANDOM' else 'is-saved-page' }} 
+                    {{ 'has-saved-mark' if a[4] and page_title == 'RANDOM' else '' }}" data-id="{{ a[0] }}">
             <div class="source">{{ a[2] }}</div>
             <div class="title" onclick="openAndMarkAsRead(this, '{{ a[0] }}')">{{ a[1] }}</div>
 

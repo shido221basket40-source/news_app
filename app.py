@@ -41,16 +41,39 @@ def send_otp_email(to_email, code):
 def get_current_user():
     return session.get("user_email")
 
-# ---------------- HOME ----------------
+# ---------------- RANDOM ----------------
+UPDATE_HOURS = [5, 11, 17]  # 5:30, 11:30, 17:30
+UPDATE_MINUTE = 30
+
+def should_fetch():
+    """指定時刻（5:30, 11:30, 17:30）のみ更新する"""
+    import datetime
+    now = datetime.datetime.now()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key='last_fetch'")
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return True
+    last = datetime.datetime.fromtimestamp(int(row[0]))
+    # 最後の更新以降に更新時刻を跨いだか確認
+    for h in UPDATE_HOURS:
+        update_time = now.replace(hour=h, minute=UPDATE_MINUTE, second=0, microsecond=0)
+        if last < update_time <= now:
+            return True
+    return False
+
 @app.route('/')
 def index():
-    NewsManager.fetch_and_store()
+    if should_fetch():
+        NewsManager.fetch_and_store()
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles ORDER BY id DESC")
     articles = c.fetchall()
     conn.close()
-    return render_template('index.html', articles=articles, page_title="HOME", user=get_current_user())
+    return render_template('index.html', articles=articles, page_title="RANDOM", user=get_current_user())
 
 # ---------------- SAVED ----------------
 @app.route('/saved')
