@@ -269,9 +269,10 @@ def login():
             row = c.fetchone()
             conn.close()
             if not row:
-                return render_template('login.html', error="このメールアドレスは登録されていません", next=next_url)
+                # 未登録→新規登録ページへメール引き継ぎ
+                return redirect(f'/register?email={email}')
             if not row[0]:
-                return render_template('login.html', error="パスワードが設定されていません。OTPでログインしてください", next=next_url)
+                return render_template('login.html', error="パスワードが設定されていません。新規登録からパスワードを設定してください", next=next_url)
             if row[0] != hash_password(password):
                 return render_template('login.html', error="パスワードが違います", next=next_url)
             session['user_email'] = email
@@ -383,11 +384,62 @@ def otp():
         c.execute("INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
         conn.commit()
         conn.close()
+        # 新規登録時はパスワードも保存
+        reg_pw = session.pop('register_password', None)
+        if reg_pw:
+            c.execute("UPDATE users SET password_hash=? WHERE email=?", (reg_pw, email))
+            conn.commit()
+        conn.close()
         session['user_email'] = email
         session.pop('otp_email', None)
         next_url = session.pop('otp_next', '/')
         return redirect(next_url)
     return render_template('otp.html', email=email)
+
+# ---------------- 新規登録 ----------------
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    prefill_email = request.args.get('email', '')
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        password2 = request.form.get('password2', '').strip()
+
+        if not email:
+            return render_template('register.html', error="メールアドレスを入力してください", email=email)
+        if not password or len(password) < 6:
+            return render_template('register.html', error="パスワードは6文字以上で入力してください", email=email)
+        if password != password2:
+            return render_template('register.html', error="パスワードが一致しません", email=email)
+
+        # 既存ユーザーチェック
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        if c.fetchone():
+            conn.close()
+            return render_template('register.html', error="このメールアドレスはすでに登録されています", email=email)
+        conn.close()
+
+        # OTP送信
+        code = str(random.randint(100000, 999999))
+        expires_at = int(time.time()) + 300
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+        conn.commit()
+        conn.close()
+        try:
+            send_otp_email(email, code)
+        except Exception as e:
+            return render_template('register.html', error=f"メール送信に失敗しました: {e}", email=email)
+
+        session['otp_email'] = email
+        session['otp_next'] = '/'
+        session['register_password'] = hash_password(password)
+        return redirect('/otp')
+
+    return render_template('register.html', email=prefill_email)
 
 # ---------------- OTP再送信 ----------------
 @app.route('/resend-otp', methods=['POST'])
