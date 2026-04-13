@@ -33,6 +33,19 @@
             cursor: pointer;
         }
 
+        #home-link {
+            position: absolute;
+            top: 22px;
+            left: 50px;
+            color: #555;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            z-index: 200;
+            transition: color 0.2s;
+        }
+        #home-link:hover { color: #fff; }
+
         #ai-btn {
             position: absolute;
             top: 20px;
@@ -190,6 +203,11 @@ body.loading {
             color: #fff;
             text-decoration: none;
             border-bottom: 1px solid #222;
+            transition: background 0.2s, color 0.2s;
+        }
+        #side-menu a:hover {
+            background: rgba(255,255,255,0.05);
+            color: #00f2ff;
         }
 
         .how-to {
@@ -205,6 +223,7 @@ body.loading {
 
 <body>
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    <a href="/" id="home-link">HOME / RANDOM</a>
     <div id="ai-btn" onclick="askAI()">AI要約</div>
 
     <div id="side-menu">
@@ -225,6 +244,7 @@ body.loading {
         </div>
     </div>
 
+    <div id="menu-overlay" onclick="closeMenu()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:250;"></div>
     <div class="container" id="swipe-area">
         {% for a in articles %}
         <div class="card {{ 'active' if loop.first else '' }} 
@@ -259,7 +279,18 @@ body.loading {
 
         function toggleMenu() {
             let menu = document.getElementById('side-menu');
-            menu.style.left = (menu.style.left === '0px') ? '-260px' : '0px';
+            let overlay = document.getElementById('menu-overlay');
+            if (menu.style.left === '0px') {
+                menu.style.left = '-260px';
+                overlay.style.display = 'none';
+            } else {
+                menu.style.left = '0px';
+                overlay.style.display = 'block';
+            }
+        }
+        function closeMenu() {
+            document.getElementById('side-menu').style.left = '-260px';
+            document.getElementById('menu-overlay').style.display = 'none';
         }
 
         // 既読表示（緑枠・緑文字）にする
