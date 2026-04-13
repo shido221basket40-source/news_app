@@ -5,19 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ジャンル設定</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: serif; height: 100dvh; display: flex; align-items: center; justify-content: center; }
-        .box { border: 1px solid #333; padding: 40px; width: 340px; box-sizing: border-box; }
+        body { margin: 0; background: #000; color: #fff; font-family: serif; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        #menu-btn { position: fixed; top: 16px; left: 16px; font-size: 1.5rem; cursor: pointer; z-index: 200; }
+        .box { border: 1px solid #333; padding: 40px; width: 100%; max-width: 500px; box-sizing: border-box; }
         h2 { font-size: 1rem; color: #888; margin-bottom: 8px; letter-spacing: 0.2em; }
-        .desc { font-size: 0.75rem; color: #555; margin-bottom: 30px; line-height: 1.7; }
-        label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 6px; margin-top: 20px; }
-        input[type="text"] { width: 100%; background: #000; border: none; border-bottom: 1px solid #555; color: #fff; font-size: 1rem; padding: 8px 0; outline: none; box-sizing: border-box; font-family: serif; }
-        .random-slot { margin-top: 20px; padding: 12px; border: 1px solid #333; color: #555; font-size: 0.8rem; text-align: center; }
-        button { margin-top: 30px; width: 100%; background: #000; color: #00f2ff; border: 1px solid #00f2ff; padding: 10px; font-size: 0.9rem; cursor: pointer; letter-spacing: 0.1em; font-family: serif; }
-        button:hover { background: rgba(0,242,255,0.1); }
+        .desc { font-size: 0.75rem; color: #555; margin-bottom: 24px; line-height: 1.7; }
+        .section { margin-bottom: 24px; }
+        .section-label { font-size: 0.75rem; color: #888; margin-bottom: 12px; }
+        .genres { display: flex; flex-wrap: wrap; gap: 8px; }
+        .genre-btn {
+            background: none;
+            border: 1px solid #333;
+            color: #555;
+            font-size: 0.8rem;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-family: serif;
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        .genre-btn:hover { border-color: #00f2ff; color: #00f2ff; }
+        .genre-btn.selected1 { border-color: #00f2ff; color: #00f2ff; background: rgba(0,242,255,0.1); }
+        .genre-btn.selected2 { border-color: #ff9900; color: #ff9900; background: rgba(255,153,0,0.1); }
+        .selected-display { margin-top: 20px; font-size: 0.8rem; color: #888; min-height: 40px; }
+        .selected-display span { color: #fff; }
+        .random-slot { margin-top: 16px; padding: 10px; border: 1px solid #333; color: #555; font-size: 0.8rem; text-align: center; border-radius: 4px; }
+        button[type="submit"] { margin-top: 24px; width: 100%; background: #000; color: #00f2ff; border: 1px solid #00f2ff; padding: 10px; font-size: 0.9rem; cursor: pointer; letter-spacing: 0.1em; font-family: serif; }
+        button[type="submit"]:hover { background: rgba(0,242,255,0.1); }
         .back { margin-top: 15px; text-align: center; font-size: 0.75rem; }
         .back a { color: #555; text-decoration: none; }
         .back a:hover { color: #fff; }
-        #menu-btn { position: fixed; top: 16px; left: 16px; font-size: 1.5rem; cursor: pointer; color: #fff; }
     </style>
 </head>
 <body>
@@ -25,18 +42,81 @@
     <div class="box">
         <h2>ジャンル設定</h2>
         <div class="desc">
-            2つのキーワードを設定すると、そのキーワードを含む記事が優先表示されます。<br>
+            2つのジャンルを選ぶと、そのキーワードを含む記事が優先表示されます。<br>
             残り1枠はランダムです。
         </div>
-        <form method="POST" action="/genre">
-            <label>キーワード 1</label>
-            <input type="text" name="genre1" value="{{ genre1 }}" placeholder="例：経済、スポーツ、AI">
-            <label>キーワード 2</label>
-            <input type="text" name="genre2" value="{{ genre2 }}" placeholder="例：政治、テクノロジー">
-            <div class="random-slot">🎲 ランダム（自動）</div>
+
+        <form method="POST" action="/genre" id="genre-form">
+            <input type="hidden" name="genre1" id="genre1-input" value="{{ genre1 }}">
+            <input type="hidden" name="genre2" id="genre2-input" value="{{ genre2 }}">
+
+            <div class="section">
+                <div class="section-label">ジャンルを選択（最大2つ）</div>
+                <div class="genres">
+                    {% for g in genres %}
+                    <button type="button" class="genre-btn
+                        {{ 'selected1' if g == genre1 else ('selected2' if g == genre2 else '') }}"
+                        onclick="selectGenre('{{ g }}', this)">{{ g }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="selected-display" id="selected-display">
+                {% if genre1 or genre2 %}
+                選択中：
+                {% if genre1 %}<span style="color:#00f2ff;">{{ genre1 }}</span>{% endif %}
+                {% if genre1 and genre2 %}、{% endif %}
+                {% if genre2 %}<span style="color:#ff9900;">{{ genre2 }}</span>{% endif %}
+                {% else %}
+                未選択
+                {% endif %}
+            </div>
+
+            <div class="random-slot">🎲 3枠目はランダム（自動）</div>
             <button type="submit">保存する</button>
         </form>
         <div class="back"><a href="/">← RANDOMに戻る</a></div>
     </div>
+
+    <script>
+        let g1 = '{{ genre1 }}';
+        let g2 = '{{ genre2 }}';
+
+        function selectGenre(genre, btn) {
+            if (g1 === genre) {
+                // 選択解除
+                g1 = '';
+                btn.classList.remove('selected1');
+            } else if (g2 === genre) {
+                g2 = '';
+                btn.classList.remove('selected2');
+            } else if (!g1) {
+                g1 = genre;
+                btn.classList.add('selected1');
+            } else if (!g2) {
+                g2 = genre;
+                btn.classList.add('selected2');
+            } else {
+                alert('2つまで選択できます。選択済みのものをクリックして解除してください。');
+                return;
+            }
+            document.getElementById('genre1-input').value = g1;
+            document.getElementById('genre2-input').value = g2;
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const el = document.getElementById('selected-display');
+            if (!g1 && !g2) {
+                el.innerHTML = '未選択';
+            } else {
+                let html = '選択中：';
+                if (g1) html += `<span style="color:#00f2ff;">${g1}</span>`;
+                if (g1 && g2) html += '、';
+                if (g2) html += `<span style="color:#ff9900;">${g2}</span>`;
+                el.innerHTML = html;
+            }
+        }
+    </script>
 </body>
 </html>

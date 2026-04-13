@@ -72,11 +72,15 @@ def get_user_genres(email):
     conn.close()
     return row if row else ('', '')
 
+GENRES = [
+    'スポーツ', 'テクノロジー', '政治', '経済', 'エンタメ',
+    '科学', '健康', '国際', '社会', '芸能', 'ビジネス', '教育',
+    '気象', '犯罪', 'IT', 'AI', '環境', '医療', 'スタートアップ', '文化'
+]
+
 @app.route('/')
 def index():
     user = get_current_user()
-    if not user:
-        return redirect('/login?next=/')
     if should_fetch():
         NewsManager.fetch_and_store()
     conn = sqlite3.connect(DB_PATH)
@@ -132,33 +136,7 @@ def genre():
         conn.close()
         return redirect('/')
     g1, g2 = get_user_genres(user)
-    return render_template('genre.html', genre1=g1, genre2=g2, user=user)
-
-# ---------------- ホーム（無限ニュース）----------------
-@app.route('/home')
-def home():
-    date_filter = request.args.get('date', 'all')
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    if date_filter == 'today':
-        # 最近24時間（UTC基準）
-        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     WHERE fetched_at >= datetime('now', '-1 days')
-                     ORDER BY fetched_at DESC LIMIT 50""")
-    elif date_filter == 'week':
-        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     WHERE fetched_at >= datetime('now', '-7 days')
-                     ORDER BY fetched_at DESC LIMIT 50""")
-    elif date_filter == 'month':
-        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     WHERE fetched_at >= datetime('now', '-30 days')
-                     ORDER BY fetched_at DESC LIMIT 50""")
-    else:
-        c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     ORDER BY fetched_at DESC LIMIT 50""")
-    articles = c.fetchall()
-    conn.close()
-    return render_template('home.html', articles=articles, user=get_current_user(), date_filter=date_filter)
+    return render_template('genre.html', genre1=g1, genre2=g2, user=user, genres=GENRES)
 
 # ---------------- SAVED ----------------
 @app.route('/saved')

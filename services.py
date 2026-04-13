@@ -27,6 +27,40 @@ class NewsManager:
         conn.close()
 
     @staticmethod
+    def fetch_by_date(c, days=7):
+        """指定期間のニュースをGNewsから取得してDBに追加"""
+        if not GNEWS_API_KEY:
+            return
+        import datetime
+        from_date = (datetime.datetime.utcnow() - datetime.timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        try:
+            url = (
+                "https://gnews.io/api/v4/top-headlines"
+                f"?country=jp&lang=ja&max=10&from={from_date}"
+                f"&token={GNEWS_API_KEY}"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "NewsApp/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as res:
+                data = json.loads(res.read().decode())
+            for article in data.get("articles", []):
+                title = (article.get("title") or "").strip()
+                source = (article.get("source") or {}).get("name", "不明")
+                link = article.get("url", "")
+                pub = article.get("publishedAt", "")
+                pub_date = pub.replace("T", " ").replace("Z", "") if pub else ""
+                if not title or not link:
+                    continue
+                try:
+                    c.execute(
+                        "INSERT OR IGNORE INTO articles (title, source, link, fetched_at) VALUES (?, ?, ?, ?)",
+                        (title, source, link, pub_date)
+                    )
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    @staticmethod
     def _fetch_from_gnews(c):
         try:
             # 日本のトップヘッドライン（最大10件）

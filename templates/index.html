@@ -211,28 +211,30 @@ body.loading {
 
 <body>
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    {% if user %}
     <div id="ai-btn" onclick="askAI()">AI要約</div>
+    {% endif %}
 
     <div id="side-menu">
-        <a href="/home">ホーム</a>
-        {% if user %}
         <a href="/">RANDOM</a>
-        <a href="/genre" style="color:#888;font-size:0.9rem;">⚙ ジャンル設定</a>
+        {% if user %}
         <a href="/saved">保存</a>
+        <a href="/genre" style="color:#888;font-size:0.9rem;">⚙ ジャンル設定</a>
         <a href="/set-password" style="color:#888;font-size:0.9rem;">🔑 パスワード設定</a>
+        <div style="padding:10px 20px;color:#555;font-size:0.7rem;">{{ user }}</div>
         <a href="/logout" style="color:#ff4444;">ログアウト</a>
         {% else %}
-        <a href="/login?next=/" onclick="return confirmLogin()">🔒 RANDOM</a>
-        <a href="/saved">保存</a>
         <a href="/login" style="color:#00f2ff;">ログイン</a>
+        <a href="/register">新規登録</a>
         {% endif %}
         <div class="how-to">
             【操作方法】<br>
             ・タップ：記事を読む（既読）<br>
-            ・上スワイプ / ↑：保存する<br>
+            ・上スワイプ / ↑：保存する（要ログイン）<br>
             ・左右スワイプ / ←→：記事をめくる<br>
-            ・AI要約：内容を確認（既読）<br><br>
-            ログインすると絞り込みとRANDOMニュースが解放されます
+            ・AI要約：内容を確認（要ログイン）<br>
+            ・⚙ジャンル設定：好みの記事を優先表示（要ログイン）<br><br>
+            ログインすると絞り込み・保存・AI要約が解放されます
         </div>
     </div>
 
@@ -396,13 +398,17 @@ body.loading {
         }
 
         function markAsSaved() {
+    {% if not user %}
+    alert("保存するにはログインが必要です");
+    window.location.href = "/login?next=/";
+    return;
+    {% endif %}
     const card = cards[currentIndex];
-
     fetch("/save/" + card.dataset.id)
         .then(res => {
             if (res.status === 401) {
                 alert("ログインが必要です");
-                window.location.href = "/login";
+                window.location.href = "/login?next=/";
                 return;
             }
             card.style.transform = "translateY(-150%)";
