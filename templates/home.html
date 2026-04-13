@@ -9,9 +9,7 @@
         body { margin: 0; background: #000; color: #fff; font-family: serif; height: 100dvh; overflow: hidden; }
         .container { position: relative; height: 100%; width: 100%; overflow: hidden; }
 
-        #menu-btn { position: absolute; top: 20px; left: 20px; z-index: 200; font-size: 1.5rem; cursor: pointer; }
-        #home-link { position: absolute; top: 22px; left: 50px; color: #555; font-size: 0.7rem; letter-spacing: 0.1em; text-decoration: none; z-index: 200; transition: color 0.2s; }
-        #home-link:hover { color: #fff; }
+        #menu-btn { position: fixed; top: 10px; left: 16px; z-index: 200; font-size: 1.5rem; cursor: pointer; }
 
         /* サイドメニュー */
         #side-menu { position: fixed; left: -260px; width: 250px; height: 100%; background: #111; z-index: 300; transition: 0.3s; padding-top: 60px; }
@@ -20,7 +18,7 @@
         .how-to { padding: 20px; color: #888; font-size: 0.75rem; line-height: 1.8; border-top: 1px solid #222; margin-top: 10px; }
 
         /* カード */
-        .card { position: absolute; top: 10%; left: 5%; width: 90%; height: 80%; display: flex; flex-direction: column; justify-content: center; padding: 40px; background: #000; border: 1px solid #333; transition: transform 0.4s ease, opacity 0.3s ease; visibility: hidden; pointer-events: none; }
+        .card { position: absolute; top: calc(10% + 50px); left: 5%; width: 90%; height: 75%; display: flex; flex-direction: column; justify-content: center; padding: 40px; background: #000; border: 1px solid #333; transition: transform 0.4s ease, opacity 0.3s ease; visibility: hidden; pointer-events: none; }
         .card.active { visibility: visible; pointer-events: auto; z-index: 10; }
 
         /* 天気カード */
@@ -37,6 +35,64 @@
         .saved-label { position: absolute; bottom: 20px; left: 20px; font-size: 0.7rem; color: #00ff88; border: 1px solid #00ff88; padding: 4px 8px; display: none; }
         .has-saved-mark .saved-label { display: block; }
 
+        /* 絞り込みUI */
+        #filter-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #000;
+            border-bottom: 1px solid #222;
+            padding: 10px 60px 10px 60px;
+            z-index: 199;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        #keyword-input {
+            background: none;
+            border: none;
+            border-bottom: 1px solid #444;
+            color: #fff;
+            font-size: 0.8rem;
+            padding: 4px 6px;
+            outline: none;
+            width: 120px;
+            font-family: serif;
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0,242,255,0.1);
+            border: 1px solid #00f2ff;
+            border-radius: 20px;
+            color: #00f2ff;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            gap: 4px;
+        }
+        .tag .remove { cursor: pointer; opacity: 0.7; }
+        .tag .remove:hover { opacity: 1; }
+        .date-filter {
+            display: flex;
+            gap: 6px;
+        }
+        .date-btn {
+            background: none;
+            border: 1px solid #333;
+            color: #555;
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-family: serif;
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        .date-btn.active {
+            border-color: #00f2ff;
+            color: #00f2ff;
+            background: rgba(0,242,255,0.1);
+        }
+
         /* カード番号 */
         .card-counter { position: absolute; top: 20px; right: 20px; font-size: 0.7rem; color: #555; z-index: 200; }
 
@@ -46,7 +102,6 @@
 </head>
 <body>
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
-    <a href="/" id="home-link">HOME / RANDOM</a>
     <div class="card-counter" id="counter"></div>
 
     <div id="menu-overlay" onclick="closeMenu()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:250;"></div>
@@ -64,6 +119,17 @@
             ・AI要約：内容を確認（既読）<br><br>
             ログインすると絞り込みとRANDOMニュースが解放されます
         </div>
+    </div>
+
+    <div id="filter-bar">
+        <div class="date-filter">
+            <button class="date-btn active" onclick="setDate('all', this)">全期間</button>
+            <button class="date-btn" onclick="setDate('today', this)">今日</button>
+            <button class="date-btn" onclick="setDate('week', this)">1週間</button>
+            <button class="date-btn" onclick="setDate('month', this)">1ヶ月</button>
+        </div>
+        <div id="tags"></div>
+        <input id="keyword-input" type="text" placeholder="キーワード追加..." onkeydown="addTag(event)">
     </div>
 
     <div id="end-msg">
@@ -92,6 +158,97 @@
     </div>
 
     <script>
+        // 絞り込み状態
+        let keywords = [];
+        let dateFilter = 'all';
+        let allArticles = {{ articles | tojson }};
+
+        // タグ追加
+        function addTag(e) {
+            if (e.key !== 'Enter') return;
+            const val = e.target.value.trim();
+            if (!val || keywords.includes(val)) { e.target.value = ''; return; }
+            keywords.push(val);
+            e.target.value = '';
+            renderTags();
+            applyFilter();
+        }
+
+        function removeTag(kw) {
+            keywords = keywords.filter(k => k !== kw);
+            renderTags();
+            applyFilter();
+        }
+
+        function renderTags() {
+            const el = document.getElementById('tags');
+            el.innerHTML = keywords.map(k =>
+                `<span class="tag">${k}<span class="remove" onclick="removeTag('${k}')">×</span></span>`
+            ).join('');
+        }
+
+        function setDate(val, btn) {
+            dateFilter = val;
+            document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilter();
+        }
+
+        function applyFilter() {
+            const now = Date.now();
+            const limits = { today: 86400000, week: 604800000, month: 2592000000 };
+
+            let filtered = allArticles.filter(a => {
+                // 日付フィルター（fetched_atがないためスキップ）
+                return true;
+            });
+
+            // キーワードスコアリング
+            if (keywords.length > 0) {
+                filtered = filtered.map(a => {
+                    const title = a[1] || '';
+                    const score = keywords.filter(k => title.includes(k)).length;
+                    return { ...a, score };
+                }).filter(a => a.score > 0 || keywords.length === 0);
+                filtered.sort((a, b) => b.score - a.score);
+            }
+
+            // カードを再描画
+            rebuildCards(filtered);
+        }
+
+        function rebuildCards(filtered) {
+            const area = document.getElementById('swipe-area');
+            // ニュースカードだけ削除
+            document.querySelectorAll('.card:not(#weather-card)').forEach(c => c.remove());
+
+            if (filtered.length === 0) {
+                const msg = document.createElement('div');
+                msg.className = 'card active';
+                msg.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#555;font-size:0.85rem;';
+                msg.textContent = '最近のニュースでは取り扱っていません';
+                area.appendChild(msg);
+            } else {
+                filtered.forEach((a, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'card' + (a[4] ? ' is-read' : '') + (a[5] ? ' has-saved-mark' : '');
+                    div.dataset.id = a[0];
+                    div.innerHTML = `
+                        <div class="source">${a[2]}</div>
+                        <div class="title" onclick="openArticle(this, '${a[0]}')">${a[1]}</div>
+                        <div class="status-badge">${a[4] ? '既読' : '未読'}</div>
+                        <div class="saved-label">保存済み</div>
+                    `;
+                    area.appendChild(div);
+                });
+            }
+
+            cards = document.querySelectorAll('.card');
+            currentIndex = 0;
+            cards[0].classList.add('active');
+            updateCounter();
+        }
+
         let cards = document.querySelectorAll('.card');
         let currentIndex = 0;
         let startX = 0, startY = 0, diffX = 0, diffY = 0;
