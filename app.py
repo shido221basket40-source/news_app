@@ -327,9 +327,7 @@ def reset_password():
                 from_email=FROM_EMAIL,
                 to_emails=email,
                 subject="【ニュースアプリ】パスワードリセット",
-                plain_text_content=f"以下のリンクからパスワードをリセットしてください（30分有効）:
-
-{reset_url}"
+                plain_text_content="以下のリンクからパスワードをリセットしてください（30分有効）:\n\n" + reset_url
             )
             sg.send(message)
         except Exception as e:
