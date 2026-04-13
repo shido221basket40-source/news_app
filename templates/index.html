@@ -264,8 +264,7 @@ body.loading {
         </div>
         {% endif %}
         {% for a in articles %}
-        <div class="card {{ 'active' if loop.first else '' }} 
-                    {{ 'is-read' if a[4] else '' }} 
+        <div class="card {{ 'is-read' if a[4] else '' }} 
                     {{ 'is-home' if page_title == 'RANDOM' else 'is-saved-page' }} 
                     {{ 'has-saved-mark' if a[4] and page_title == 'RANDOM' else '' }}" data-id="{{ a[0] }}">
             <div class="source">{{ a[2] }}</div>
