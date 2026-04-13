@@ -38,50 +38,50 @@
             top: 20px;
             right: 20px;
             z-index: 200;
-            width: 84px;
-            height: 30px;
-            line-height: 30px;
-            box-sizing: border-box;
             border: 1px solid #00f2ff;
+            color: #00f2ff;
+            padding: 5px 10px;
+            font-size: 0.7rem;
             border-radius: 20px;
             background: rgba(0, 242, 255, 0.1);
-            color: #00f2ff;
-            font-size: 0.7rem;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
             cursor: pointer;
+            min-width: 60px;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
         }
 
-        #ai-btn.loading {
-            pointer-events: none;
-            opacity: 0.6;
-            color: transparent;
-        }
+#ai-btn.loading {
+    pointer-events: none;
+    opacity: 0.6;
+    position: relative;
+}
 
-        #ai-btn.loading::after {
-            content: "";
-            width: 12px;
-            height: 12px;
-            border: 2px solid #00f2ff;
-            border-top-color: transparent;
-            border-radius: 50%;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            margin-left: -6px;
-            margin-top: -6px;
-            animation: spin 0.8s linear infinite;
-        }
+#ai-btn.loading::after {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid #00f2ff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    margin-top: -7px;
+    animation: spin 0.8s linear infinite;
+}
 
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
 
-        body.loading {
-            pointer-events: none;
-        }
+/* 画面全体操作ロック */
+body.loading {
+    pointer-events: none;
+}
+
+
 
         .card {
             position: absolute;
@@ -107,12 +107,14 @@
             z-index: 10;
         }
 
+
         .is-home.is-read .status-badge {
             color: #00ff88 !important;
             border: 1px solid #00ff88 !important;
             font-weight: bold;
         }
 
+        /* SAVED画面：既読状態でも文字は白く保つ */
         .is-saved-page .title {
             color: #fff !important;
         }
@@ -131,6 +133,7 @@
             transition: color 0.2s;
         }
 
+        /* バッジ（基本は未読：グレー） */
         .status-badge {
             position: absolute;
             bottom: 20px;
@@ -141,6 +144,7 @@
             color: #555;
         }
 
+        /* 保存済みラベル（HOME画面の左下） */
         .saved-label {
             position: absolute;
             bottom: 20px;
@@ -156,6 +160,7 @@
             display: block !important;
         }
 
+        /* 削除ボタン（SAVED画面） */
         .delete-btn {
             position: absolute;
             bottom: 20px;
@@ -195,46 +200,6 @@
             border-top: 1px solid #222;
             margin-top: 10px;
         }
-
-        .auth-links {
-            position: absolute;
-            left: 0;
-            bottom: 20px;
-            width: 100%;
-        }
-
-        .auth-links a {
-            display: block;
-            padding: 16px 20px;
-            color: #00f2ff !important;
-            text-decoration: none;
-            border-top: 1px solid #222;
-            border-bottom: none !important;
-        }
-
-        .auth-links {
-    position: absolute;
-    left: 0;
-    bottom: 20px;
-    width: 100%;
-}
-
-.auth-links a {
-    display: block;
-    padding: 16px 20px;
-    color: #00f2ff !important;
-    text-decoration: none;
-    border-top: 1px solid #222;
-    border-bottom: none !important;
-}
-
-.login-status {
-    padding: 16px 20px 8px 20px;
-    color: #888;
-    font-size: 0.8rem;
-    border-top: 1px solid #222;
-}
-
     </style>
 </head>
 
@@ -243,35 +208,29 @@
     <div id="ai-btn" onclick="askAI()">AI要約</div>
 
     <div id="side-menu">
-    <a href="/">HOME</a>
-    <a href="/saved">SAVED</a>
-
-    <div class="how-to">
-        【操作方法】<br>
-        ・タップ：記事を読む（既読）<br>
-        ・上スワイプ：保存する（ログイン必要）<br>
-        ・左右スワイプ：記事をめくる<br>
-        ・AI要約：内容を確認
-    </div>
-
-    <div class="auth-links">
-        {% if logged_in %}
-            <div class="login-status">ログイン中: {{ username }}</div>
-            <a href="/logout">ログアウト</a>
+        <a href="/">HOME</a>
+        <a href="/saved">SAVED</a>
+        {% if user %}
+        <a href="/logout" style="color:#ff4444;border-top:1px solid #222;">ログアウト</a>
+        <div style="padding:10px 20px;color:#555;font-size:0.7rem;">{{ user }}</div>
         {% else %}
-            <a href="/login">ログイン</a>
-            <a href="/register">新規登録</a>
+        <a href="/login" style="color:#00f2ff;">ログイン</a>
         {% endif %}
+        <div class="how-to">
+            【操作方法】<br>
+            ・タップ：記事を読む（既読）<br>
+            ・上スワイプ / ↑：保存する<br>
+            ・左右スワイプ / ←→：記事をめくる<br>
+            ・AI要約：内容を確認（既読）
+        </div>
     </div>
-</div>
 
     <div class="container" id="swipe-area">
         {% for a in articles %}
-        <div class="card {{ 'active' if loop.first else '' }}
-            {{ 'is-read' if a[4] else '' }}
-            {{ 'is-home' if page_title == 'HOME' else 'is-saved-page' }}
-            {{ 'has-saved-mark' if a[5] and page_title == 'HOME' else '' }}"
-     data-id="{{ a[0] }}">
+        <div class="card {{ 'active' if loop.first else '' }} 
+                    {{ 'is-read' if a[4] else '' }} 
+                    {{ 'is-home' if page_title == 'HOME' else 'is-saved-page' }} 
+                    {{ 'has-saved-mark' if a[4] and page_title == 'HOME' else '' }}" data-id="{{ a[0] }}">
             <div class="source">{{ a[2] }}</div>
             <div class="title" onclick="openAndMarkAsRead(this, '{{ a[0] }}')">{{ a[1] }}</div>
 
@@ -291,6 +250,7 @@
         let currentIndex = 0;
         let startX = 0, startY = 0, diffX = 0, diffY = 0;
 
+        // 【リセット機能】戻ってきた時にDBを再読み込みし、削除された記事を未読に戻す
         window.onpageshow = function (e) {
             if (e.persisted || (window.performance && window.performance.navigation.type === 2)) {
                 location.reload();
@@ -302,9 +262,16 @@
             menu.style.left = (menu.style.left === '0px') ? '-260px' : '0px';
         }
 
+        // 既読表示（緑枠・緑文字）にする
         function setAsRead(card) {
             card.classList.add('is-read');
             card.querySelector('.status-badge').innerText = '既読';
+        }
+
+        // 保存済み（左下にラベル）にする
+        function setAsSaved(card) {
+            setAsRead(card);
+            card.classList.add('has-saved-mark');
         }
 
         function openAndMarkAsRead(el, id) {
@@ -316,34 +283,36 @@
         }
 
         function askAI() {
-            const card = cards[currentIndex];
-            if (!card) return;
+    const card = cards[currentIndex];
+    if (!card) return;
 
-            const aiBtn = document.getElementById("ai-btn");
-            if (aiBtn.classList.contains("loading")) return;
+    const aiBtn = document.getElementById("ai-btn");
 
-            aiBtn.classList.add("loading");
-            document.body.classList.add("loading");
+    // 二重押し防止
+    if (aiBtn.classList.contains("loading")) return;
 
-            fetch("/summarize/" + card.dataset.id)
-                .then(res => res.text())
-                .then(text => {
-                    alert(text);
-                })
-                .catch(() => {
-                    alert("AI要約に失敗しました");
-                })
-                .finally(() => {
-                    aiBtn.classList.remove("loading");
-                    document.body.classList.remove("loading");
-                });
-        }
+    // ローディング開始
+    aiBtn.classList.add("loading");
+    document.body.classList.add("loading");
+
+    fetch("/summarize/" + card.dataset.id)
+        .then(res => res.text())
+        .then(text => {
+            alert(text);
+        })
+        .catch(err => {
+            alert("AI要約に失敗しました");
+        })
+        .finally(() => {
+            // ローディング解除
+            aiBtn.classList.remove("loading");
+            document.body.classList.remove("loading");
+        });
+}
 
         const area = document.getElementById('swipe-area');
-
         area.addEventListener('touchstart', e => {
-            startX = e.touches[0].pageX;
-            startY = e.touches[0].pageY;
+            startX = e.touches[0].pageX; startY = e.touches[0].pageY;
             if (cards[currentIndex]) cards[currentIndex].style.transition = 'none';
         });
 
@@ -353,28 +322,6 @@
             diffY = e.touches[0].pageY - startY;
             cards[currentIndex].style.transform = `translate(${diffX}px, ${diffY}px) rotate(${diffX / 20}deg)`;
         });
-
-        function markAsSaved() {
-    const card = cards[currentIndex];
-    card.style.transform = "translateY(-150%)";
-
-    fetch("/save/" + card.dataset.id)
-        .then(res => {
-            if (res.status === 401) {
-                alert("保存するにはログインが必要です");
-                window.location.href = "/login";
-                throw new Error("login required");
-            }
-            return res.text();
-        })
-        .then(() => {
-            card.classList.add('has-saved-mark');
-            setTimeout(() => moveCard(1), 300);
-        })
-        .catch(() => {
-            card.style.transform = "translate(0,0) rotate(0)";
-        });
-}
 
         area.addEventListener('touchend', () => {
             if (!cards[currentIndex]) return;
@@ -405,28 +352,27 @@
         }
 
         function markAsSaved() {
-            const card = cards[currentIndex];
+    const card = cards[currentIndex];
+
+    fetch("/save/" + card.dataset.id)
+        .then(res => {
+            if (res.status === 401) {
+                alert("ログインが必要です");
+                window.location.href = "/login";
+                return;
+            }
             card.style.transform = "translateY(-150%)";
+            card.classList.add('has-saved-mark');
+            setTimeout(() => moveCard(1), 300);
+        })
+        .catch(() => {
+            alert("保存に失敗しました");
+        });
+}
 
-            fetch("/save/" + card.dataset.id)
-                .then(res => {
-                    if (res.status === 401) {
-                        alert("保存するにはログインが必要です");
-                        window.location.href = "/login";
-                        throw new Error("login required");
-                    }
-                    return res.text();
-                })
-                .then(() => {
-                    card.classList.add('has-saved-mark');
-                    setTimeout(() => moveCard(1), 300);
-                })
-                .catch(() => {
-                    card.style.transform = "translate(0,0) rotate(0)";
-                });
-        }
-
+        // キーボード操作（矢印キー）
         document.addEventListener('keydown', (e) => {
+            // サイドメニューが開いている場合は無視
             const menu = document.getElementById('side-menu');
             if (menu.style.left === '0px') return;
 
@@ -453,9 +399,8 @@
                     break;
             }
         });
+
     </script>
-
-
 </body>
 
 </html>

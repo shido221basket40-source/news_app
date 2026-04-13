@@ -2,3 +2,4 @@ flask
 feedparser
 openai
 gunicorn
+sendgrid
