@@ -108,9 +108,16 @@
 
     <div id="side-menu">
         <a href="/home">ホーム</a>
+        {% if user %}
         <a href="/">RANDOM</a>
         <a href="/saved">保存</a>
+        <a href="/set-password" style="color:#888;font-size:0.9rem;">🔑 パスワード設定</a>
         <a href="/logout" style="color:#ff4444;">ログアウト</a>
+        {% else %}
+        <a href="/login?next=/" style="color:#888;">RANDOM（要ログイン）</a>
+        <a href="/login" style="color:#00f2ff;">ログイン</a>
+        <a href="/register">新規登録</a>
+        {% endif %}
         <div class="how-to">
             【操作方法】<br>
             ・タップ：記事を読む（既読）<br>
