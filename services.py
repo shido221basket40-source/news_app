@@ -6,7 +6,7 @@ import urllib.request
 import json
 from models import DB_PATH
 
-NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
+GNEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
 
 class NewsManager:
     @staticmethod
@@ -16,10 +16,9 @@ class NewsManager:
         # 30日以上前の記事を削除
         c.execute("DELETE FROM articles WHERE fetched_at < datetime('now', '-30 days')")
 
-        # NewsAPIから取得
-        if NEWS_API_KEY:
-            NewsManager._fetch_from_newsapi(c)
-        
+        if GNEWS_API_KEY:
+            NewsManager._fetch_from_gnews(c)
+
         # フォールバック：Google News RSS
         NewsManager._fetch_from_rss(c)
 
@@ -28,34 +27,35 @@ class NewsManager:
         conn.close()
 
     @staticmethod
-    def _fetch_from_newsapi(c):
+    def _fetch_from_gnews(c):
         try:
+            # 日本のトップヘッドライン（最大10件）
             url = (
-                "https://newsapi.org/v2/top-headlines"
-                "?country=jp&pageSize=50"
-                f"&apiKey={NEWS_API_KEY}"
+                "https://gnews.io/api/v4/top-headlines"
+                "?country=jp&lang=ja&max=10"
+                f"&apikey={GNEWS_API_KEY}"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "NewsApp/1.0"})
             with urllib.request.urlopen(req, timeout=10) as res:
                 data = json.loads(res.read().decode())
+
             for article in data.get("articles", []):
-                title = article.get("title", "") or ""
-                if " - " in title:
-                    title, source = title.rsplit(" - ", 1)
-                else:
-                    source = (article.get("source") or {}).get("name", "不明")
+                title = (article.get("title") or "").strip()
+                source = (article.get("source") or {}).get("name", "不明")
                 link = article.get("url", "")
                 pub = article.get("publishedAt", "")
                 if pub:
+                    # "2024-04-13T10:00:00Z" → "2024-04-13 10:00:00"
                     pub_date = pub.replace("T", " ").replace("Z", "")
                 else:
                     pub_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+
                 if not title or not link:
                     continue
                 try:
                     c.execute(
                         "INSERT OR IGNORE INTO articles (title, source, link, fetched_at) VALUES (?, ?, ?, ?)",
-                        (title.strip(), source.strip(), link, pub_date)
+                        (title, source, link, pub_date)
                     )
                 except Exception:
                     pass

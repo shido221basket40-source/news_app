@@ -146,12 +146,14 @@
 
     <div class="container" id="swipe-area">
         <!-- 天気カード -->
+        {% if date_filter == "all" or not date_filter %}
         <div class="card weather-card active" id="weather-card">
             <div class="date-text" id="date-text">読み込み中...</div>
             <div class="day-text" id="day-text"></div>
             <div class="weather-text" id="weather-text"></div>
             <div class="location-text" id="location-text"></div>
         </div>
+        {% endif %}
 
         {% for a in articles %}
         <div class="card {{ 'is-read' if a[4] else '' }} {{ 'has-saved-mark' if a[5] else '' }}"
