@@ -131,9 +131,12 @@
 
     <div id="filter-bar">
         <div class="date-filter">
-            <a class="date-btn {{ 'active' if date_filter == 'today' else '' }}" href="/home?date=today">今日</a>
-            <a class="date-btn {{ 'active' if date_filter == 'week' else '' }}" href="/home?date=week">1週間</a>
-            <a class="date-btn {{ 'active' if date_filter == 'month' else '' }}" href="/home?date=month">1ヶ月</a>
+            <a class="date-btn {{ 'active' if date_filter == 'today' else '' }}"
+               href="{{ '/home' if date_filter == 'today' else '/home?date=today' }}">今日</a>
+            <a class="date-btn {{ 'active' if date_filter == 'week' else '' }}"
+               href="{{ '/home' if date_filter == 'week' else '/home?date=week' }}">1週間</a>
+            <a class="date-btn {{ 'active' if date_filter == 'month' else '' }}"
+               href="{{ '/home' if date_filter == 'month' else '/home?date=month' }}">1ヶ月</a>
         </div>
         <div id="tags"></div>
         <input id="keyword-input" type="text" placeholder="キーワード追加..." onkeydown="addTag(event)">
