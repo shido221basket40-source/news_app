@@ -80,7 +80,16 @@ def index():
 def home():
     if not get_current_user():
         return redirect('/login?next=/home')
-    return render_template('home.html', user=get_current_user())
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, title, source, link, is_read, is_saved
+        FROM articles
+        ORDER BY fetched_at DESC
+    """)
+    articles = c.fetchall()
+    conn.close()
+    return render_template('home.html', articles=articles, user=get_current_user())
 
 # ---------------- SAVED ----------------
 @app.route('/saved')

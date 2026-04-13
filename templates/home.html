@@ -2,17 +2,274 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ホーム</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: serif; height: 100dvh; display: flex; align-items: center; justify-content: center; }
-        .msg { color: #555; font-size: 0.9rem; letter-spacing: 0.1em; }
-        a { position: fixed; top: 16px; left: 16px; color: #555; text-decoration: none; font-size: 0.8rem; }
-        a:hover { color: #fff; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #000; color: #fff; font-family: serif; height: 100dvh; overflow: hidden; }
+        .container { position: relative; height: 100%; width: 100%; overflow: hidden; }
+
+        #menu-btn { position: absolute; top: 20px; left: 20px; z-index: 200; font-size: 1.5rem; cursor: pointer; }
+        #home-link { position: absolute; top: 22px; left: 50px; color: #555; font-size: 0.7rem; letter-spacing: 0.1em; text-decoration: none; z-index: 200; transition: color 0.2s; }
+        #home-link:hover { color: #fff; }
+
+        /* サイドメニュー */
+        #side-menu { position: fixed; left: -260px; width: 250px; height: 100%; background: #111; z-index: 300; transition: 0.3s; padding-top: 60px; }
+        #side-menu a { display: block; padding: 20px; color: #fff; text-decoration: none; border-bottom: 1px solid #222; transition: background 0.2s, color 0.2s; }
+        #side-menu a:hover { background: rgba(255,255,255,0.05); color: #00f2ff; }
+        .how-to { padding: 20px; color: #888; font-size: 0.75rem; line-height: 1.8; border-top: 1px solid #222; margin-top: 10px; }
+
+        /* カード */
+        .card { position: absolute; top: 10%; left: 5%; width: 90%; height: 80%; display: flex; flex-direction: column; justify-content: center; padding: 40px; background: #000; border: 1px solid #333; transition: transform 0.4s ease, opacity 0.3s ease; visibility: hidden; pointer-events: none; }
+        .card.active { visibility: visible; pointer-events: auto; z-index: 10; }
+
+        /* 天気カード */
+        .weather-card .date-text { font-size: 1rem; color: #888; margin-bottom: 10px; letter-spacing: 0.1em; }
+        .weather-card .day-text { font-size: 3rem; line-height: 1.2; color: #fff; margin-bottom: 20px; }
+        .weather-card .weather-text { font-size: 1.2rem; color: #00f2ff; }
+        .weather-card .location-text { font-size: 0.75rem; color: #555; margin-top: 10px; }
+
+        /* ニュースカード */
+        .source { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
+        .title { font-size: 1.6rem; line-height: 1.6; color: #fff; cursor: pointer; transition: color 0.2s; }
+        .status-badge { position: absolute; bottom: 20px; right: 20px; font-size: 0.7rem; padding: 4px 8px; border: 1px solid #333; color: #555; }
+        .is-read .status-badge { color: #00ff88; border-color: #00ff88; }
+        .saved-label { position: absolute; bottom: 20px; left: 20px; font-size: 0.7rem; color: #00ff88; border: 1px solid #00ff88; padding: 4px 8px; display: none; }
+        .has-saved-mark .saved-label { display: block; }
+
+        /* カード番号 */
+        .card-counter { position: absolute; top: 20px; right: 20px; font-size: 0.7rem; color: #555; z-index: 200; }
+
+        /* 終端メッセージ */
+        #end-msg { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; color: #555; font-size: 0.85rem; line-height: 2; z-index: 500; background: #000; padding: 30px; border: 1px solid #333; }
     </style>
 </head>
 <body>
-    <a href="/">← RANDOM</a>
-    <div class="msg">準備中です</div>
+    <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    <a href="/" id="home-link">HOME / RANDOM</a>
+    <div class="card-counter" id="counter"></div>
+
+    <div id="menu-overlay" onclick="closeMenu()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:250;"></div>
+
+    <div id="side-menu">
+        <a href="/home">ホーム</a>
+        <a href="/">RANDOM</a>
+        <a href="/saved">保存</a>
+        <a href="/logout" style="color:#ff4444;">ログアウト</a>
+        <div class="how-to">
+            【操作方法】<br>
+            ・タップ：記事を読む（既読）<br>
+            ・上スワイプ / ↑：保存する<br>
+            ・左右スワイプ / ←→：記事をめくる<br>
+            ・AI要約：内容を確認（既読）<br><br>
+            ログインすると絞り込みとRANDOMニュースが解放されます
+        </div>
+    </div>
+
+    <div id="end-msg">
+        これ以上スライドできません<br>
+        最初のページに戻ります
+    </div>
+
+    <div class="container" id="swipe-area">
+        <!-- 天気カード -->
+        <div class="card weather-card active" id="weather-card">
+            <div class="date-text" id="date-text">読み込み中...</div>
+            <div class="day-text" id="day-text"></div>
+            <div class="weather-text" id="weather-text"></div>
+            <div class="location-text" id="location-text"></div>
+        </div>
+
+        {% for a in articles %}
+        <div class="card {{ 'is-read' if a[4] else '' }} {{ 'has-saved-mark' if a[5] else '' }}"
+             data-id="{{ a[0] }}" data-index="{{ loop.index }}">
+            <div class="source">{{ a[2] }}</div>
+            <div class="title" onclick="openArticle(this, '{{ a[0] }}')">{{ a[1] }}</div>
+            <div class="status-badge">{{ '既読' if a[4] else '未読' }}</div>
+            <div class="saved-label">保存済み</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        let cards = document.querySelectorAll('.card');
+        let currentIndex = 0;
+        let startX = 0, startY = 0, diffX = 0, diffY = 0;
+        const total = cards.length;
+
+        // カウンター更新
+        function updateCounter() {
+            document.getElementById('counter').textContent = (currentIndex + 1) + ' / ' + total;
+        }
+        updateCounter();
+
+        // 天気・日付取得
+        const days = ['日', '月', '火', '水', '木', '金', '土'];
+        const now = new Date();
+        const dateStr = (now.getMonth()+1) + '月' + now.getDate() + '日';
+        const dayStr = days[now.getDay()] + '曜日';
+        document.getElementById('date-text').textContent = dateStr;
+        document.getElementById('day-text').textContent = dayStr;
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const code = data.current_weather.weathercode;
+                        const temp = data.current_weather.temperature;
+                        const weatherMap = {
+                            0:'☀️ 快晴', 1:'🌤 晴れ', 2:'⛅ 曇り時々晴れ', 3:'☁️ 曇り',
+                            45:'🌫 霧', 48:'🌫 霧氷',
+                            51:'🌦 小雨', 53:'🌧 雨', 55:'🌧 強い雨',
+                            61:'🌧 小雨', 63:'🌧 雨', 65:'🌧 大雨',
+                            71:'🌨 小雪', 73:'❄️ 雪', 75:'❄️ 大雪',
+                            80:'🌦 にわか雨', 81:'🌧 にわか雨', 82:'⛈ 激しいにわか雨',
+                            95:'⛈ 雷雨', 96:'⛈ 雷雨', 99:'⛈ 激しい雷雨'
+                        };
+                        const weather = weatherMap[code] || '不明';
+                        document.getElementById('weather-text').textContent = weather + '　' + temp + '°C';
+                        document.getElementById('location-text').textContent = '📍 現在地の天気';
+                    });
+            }, () => {
+                document.getElementById('location-text').textContent = '現在地がわかると天気も表示されます';
+            });
+        } else {
+            document.getElementById('location-text').textContent = '現在地がわかると天気も表示されます';
+        }
+
+        // メニュー
+        function toggleMenu() {
+            let menu = document.getElementById('side-menu');
+            let overlay = document.getElementById('menu-overlay');
+            if (menu.style.left === '0px') {
+                menu.style.left = '-260px';
+                overlay.style.display = 'none';
+            } else {
+                menu.style.left = '0px';
+                overlay.style.display = 'block';
+            }
+        }
+        function closeMenu() {
+            document.getElementById('side-menu').style.left = '-260px';
+            document.getElementById('menu-overlay').style.display = 'none';
+        }
+
+        // カード移動
+        function moveCard(step) {
+            let next = currentIndex + step;
+            if (next < 0) {
+                next = total - 1; // 左端→最後尾
+            } else if (next >= total) {
+                // 右端→終端メッセージ→最初に戻る
+                showEndMsg();
+                return;
+            }
+            animateMove(step, next);
+        }
+
+        function animateMove(step, next) {
+            let prev = cards[currentIndex];
+            prev.classList.remove('active');
+            prev.style.transition = 'transform 0.4s ease';
+            prev.style.transform = step > 0 ? 'translateX(-150%)' : 'translateX(150%)';
+
+            currentIndex = next;
+            let nextCard = cards[currentIndex];
+            nextCard.style.transition = 'none';
+            nextCard.style.transform = step > 0 ? 'translateX(150%)' : 'translateX(-150%)';
+            nextCard.classList.add('active');
+            setTimeout(() => {
+                nextCard.style.transition = 'transform 0.4s ease';
+                nextCard.style.transform = 'translate(0,0)';
+            }, 10);
+            updateCounter();
+        }
+
+        function showEndMsg() {
+            const msg = document.getElementById('end-msg');
+            msg.style.display = 'block';
+            setTimeout(() => {
+                msg.style.display = 'none';
+                // 最初に戻る
+                cards[currentIndex].classList.remove('active');
+                cards[currentIndex].style.transform = 'translateX(150%)';
+                currentIndex = 0;
+                cards[0].style.transition = 'none';
+                cards[0].style.transform = 'translateX(0)';
+                cards[0].classList.add('active');
+                updateCounter();
+            }, 2000);
+        }
+
+        // 保存
+        function markAsSaved() {
+            const card = cards[currentIndex];
+            if (card.id === 'weather-card') return;
+            fetch('/save/' + card.dataset.id)
+                .then(res => {
+                    if (res.status === 401) { alert('ログインが必要です'); window.location.href = '/login'; return; }
+                    card.style.transform = 'translateY(-150%)';
+                    card.classList.add('has-saved-mark');
+                    setTimeout(() => moveCard(1), 300);
+                });
+        }
+
+        // 記事を開く
+        function openArticle(el, id) {
+            if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) return;
+            const card = el.closest('.card');
+            card.classList.add('is-read');
+            card.querySelector('.status-badge').textContent = '既読';
+            fetch('/read/' + id, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(() => { window.location.href = '/read/' + id; });
+        }
+
+        // タッチ操作
+        const area = document.getElementById('swipe-area');
+        area.addEventListener('touchstart', e => {
+            startX = e.touches[0].pageX; startY = e.touches[0].pageY;
+            if (cards[currentIndex]) cards[currentIndex].style.transition = 'none';
+        });
+        area.addEventListener('touchmove', e => {
+            if (!cards[currentIndex]) return;
+            diffX = e.touches[0].pageX - startX;
+            diffY = e.touches[0].pageY - startY;
+            cards[currentIndex].style.transform = `translate(${diffX}px,${diffY}px) rotate(${diffX/20}deg)`;
+        });
+        area.addEventListener('touchend', () => {
+            if (!cards[currentIndex]) return;
+            if (diffY < -100) markAsSaved();
+            else if (Math.abs(diffX) > 100) moveCard(diffX < 0 ? 1 : -1);
+            else { cards[currentIndex].style.transition = 'transform 0.4s ease'; cards[currentIndex].style.transform = 'translate(0,0) rotate(0)'; }
+            setTimeout(() => { diffX = 0; diffY = 0; }, 50);
+        });
+
+        // キーボード
+        document.addEventListener('keydown', e => {
+            const menu = document.getElementById('side-menu');
+            if (menu.style.left === '0px') return;
+            switch(e.key) {
+                case 'ArrowRight': e.preventDefault(); moveCard(1); break;
+                case 'ArrowLeft': e.preventDefault(); moveCard(-1); break;
+                case 'ArrowUp': e.preventDefault(); markAsSaved(); break;
+                case 'Enter':
+                    e.preventDefault();
+                    const card = cards[currentIndex];
+                    if (card && card.id !== 'weather-card') {
+                        openArticle(card.querySelector('.title'), card.dataset.id);
+                    }
+                    break;
+            }
+        });
+
+        window.onpageshow = function(e) {
+            if (e.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                location.reload();
+            }
+        };
+    </script>
 </body>
 </html>
