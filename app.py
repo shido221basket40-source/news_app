@@ -142,18 +142,18 @@ def home():
     if date_filter == 'today':
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
                      WHERE fetched_at >= datetime('now', 'start of day')
-                     ORDER BY fetched_at DESC""")
+                     ORDER BY fetched_at DESC LIMIT 50""")
     elif date_filter == 'week':
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
                      WHERE fetched_at >= datetime('now', '-7 days')
-                     ORDER BY fetched_at DESC""")
+                     ORDER BY fetched_at DESC LIMIT 50""")
     elif date_filter == 'month':
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
                      WHERE fetched_at >= datetime('now', '-30 days')
-                     ORDER BY fetched_at DESC""")
+                     ORDER BY fetched_at DESC LIMIT 50""")
     else:
         c.execute("""SELECT id, title, source, link, is_read, is_saved FROM articles
-                     ORDER BY fetched_at DESC""")
+                     ORDER BY fetched_at DESC LIMIT 50""")
     articles = c.fetchall()
     conn.close()
     return render_template('home.html', articles=articles, user=get_current_user(), date_filter=date_filter)

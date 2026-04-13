@@ -24,7 +24,7 @@ class NewsManager:
         for feed_url in RSS_FEEDS:
             try:
                 feed = feedparser.parse(feed_url)
-                for entry in feed.entries[:15]:
+                for entry in feed.entries[:20]:
                     raw_title = entry.title
                     if " - " in raw_title:
                         title, source = raw_title.rsplit(" - ", 1)
