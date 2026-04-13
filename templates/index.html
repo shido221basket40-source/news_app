@@ -84,6 +84,11 @@ body.loading {
 
 
 
+        .weather-card .date-text { font-size: 1rem; color: #888; margin-bottom: 10px; letter-spacing: 0.1em; }
+        .weather-card .day-text { font-size: 3rem; line-height: 1.2; color: #fff; margin-bottom: 20px; }
+        .weather-card .weather-text { font-size: 1.2rem; color: #00f2ff; }
+        .weather-card .location-text { font-size: 0.75rem; color: #555; margin-top: 10px; }
+
         .card {
             position: absolute;
             top: 10%;
@@ -240,6 +245,14 @@ body.loading {
 
     <div id="menu-overlay" onclick="closeMenu()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:250;"></div>
     <div class="container" id="swipe-area">
+        <!-- 天気カード -->
+        <div class="card weather-card active" id="weather-card">
+            <div class="date-text" id="date-text"></div>
+            <div class="day-text" id="day-text"></div>
+            <div class="weather-text" id="weather-text"></div>
+            <div class="location-text" id="location-text"></div>
+        </div>
+
         {% if g1_empty %}
         <div class="card" style="display:flex;align-items:center;justify-content:center;text-align:center;">
             <div style="color:#555;font-size:0.85rem;">「{{ genre1 }}」の最近のニュースでは取り扱っていません</div>
@@ -270,6 +283,26 @@ body.loading {
     </div>
 
     <script>
+        // 天気・日付
+        const days = ['日','月','火','水','木','金','土'];
+        const now = new Date();
+        document.getElementById('date-text').textContent = (now.getMonth()+1) + '月' + now.getDate() + '日';
+        document.getElementById('day-text').textContent = days[now.getDay()] + '曜日';
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const wmap = {0:'☀️ 快晴',1:'🌤 晴れ',2:'⛅ 曇り時々晴れ',3:'☁️ 曇り',45:'🌫 霧',51:'🌦 小雨',53:'🌧 雨',55:'🌧 強雨',61:'🌧 小雨',63:'🌧 雨',65:'🌧 大雨',71:'🌨 小雪',73:'❄️ 雪',75:'❄️ 大雪',80:'🌦 にわか雨',95:'⛈ 雷雨'};
+                        const w = wmap[data.current_weather.weathercode] || '—';
+                        document.getElementById('weather-text').textContent = w + '　' + data.current_weather.temperature + '°C';
+                        document.getElementById('location-text').textContent = '📍 現在地の天気';
+                    });
+            }, () => {
+                document.getElementById('location-text').textContent = '現在地がわかると天気も表示されます';
+            });
+        }
+
         let cards = document.querySelectorAll('.card');
         let currentIndex = 0;
         let startX = 0, startY = 0, diffX = 0, diffY = 0;
