@@ -217,6 +217,7 @@ body.loading {
         <a href="/home">ホーム</a>
         {% if user %}
         <a href="/">RANDOM</a>
+        <a href="/genre" style="color:#888;font-size:0.9rem;">⚙ ジャンル設定</a>
         <a href="/saved">保存</a>
         <a href="/logout" style="color:#ff4444;">ログアウト</a>
         {% else %}
@@ -236,6 +237,16 @@ body.loading {
 
     <div id="menu-overlay" onclick="closeMenu()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:250;"></div>
     <div class="container" id="swipe-area">
+        {% if g1_empty %}
+        <div class="card" style="display:flex;align-items:center;justify-content:center;text-align:center;">
+            <div style="color:#555;font-size:0.85rem;">「{{ genre1 }}」の最近のニュースでは取り扱っていません</div>
+        </div>
+        {% endif %}
+        {% if g2_empty %}
+        <div class="card" style="display:flex;align-items:center;justify-content:center;text-align:center;">
+            <div style="color:#555;font-size:0.85rem;">「{{ genre2 }}」の最近のニュースでは取り扱っていません</div>
+        </div>
+        {% endif %}
         {% for a in articles %}
         <div class="card {{ 'active' if loop.first else '' }} 
                     {{ 'is-read' if a[4] else '' }} 

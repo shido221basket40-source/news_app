@@ -20,5 +20,11 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   email TEXT NOT NULL, code TEXT NOT NULL,
                   expires_at INTEGER NOT NULL, used BOOLEAN DEFAULT 0)''')
+    # ジャンル設定テーブル
+    c.execute('''CREATE TABLE IF NOT EXISTS user_genres
+                 (email TEXT PRIMARY KEY,
+                  genre1 TEXT DEFAULT \'\',
+                  genre2 TEXT DEFAULT \'\')'''
+    )
     conn.commit()
     conn.close()

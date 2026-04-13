@@ -42,11 +42,10 @@ def get_current_user():
     return session.get("user_email")
 
 # ---------------- RANDOM ----------------
-UPDATE_HOURS = [5, 11, 17]  # 5:30, 11:30, 17:30
+UPDATE_HOURS = [5, 11, 17]
 UPDATE_MINUTE = 30
 
 def should_fetch():
-    """指定時刻（5:30, 11:30, 17:30）のみ更新する"""
     import datetime
     now = datetime.datetime.now()
     conn = sqlite3.connect(DB_PATH)
@@ -57,23 +56,77 @@ def should_fetch():
     if not row:
         return True
     last = datetime.datetime.fromtimestamp(int(row[0]))
-    # 最後の更新以降に更新時刻を跨いだか確認
     for h in UPDATE_HOURS:
         update_time = now.replace(hour=h, minute=UPDATE_MINUTE, second=0, microsecond=0)
         if last < update_time <= now:
             return True
     return False
 
+def get_user_genres(email):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT genre1, genre2 FROM user_genres WHERE email=?", (email,))
+    row = c.fetchone()
+    conn.close()
+    return row if row else ('', '')
+
 @app.route('/')
 def index():
+    user = get_current_user()
+    if not user:
+        return redirect('/login?next=/')
     if should_fetch():
         NewsManager.fetch_and_store()
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles ORDER BY id DESC")
-    articles = c.fetchall()
+    all_articles = c.fetchall()
     conn.close()
-    return render_template('index.html', articles=articles, page_title="RANDOM", user=get_current_user())
+
+    genre1, genre2 = get_user_genres(user)
+
+    # ジャンル別に分類
+    def filter_by_genre(articles, keyword):
+        if not keyword:
+            return []
+        return [a for a in articles if keyword in (a[1] or '')]
+
+    g1_articles = filter_by_genre(all_articles, genre1)
+    g2_articles = filter_by_genre(all_articles, genre2)
+    used_ids = {a[0] for a in g1_articles + g2_articles}
+    random_articles = [a for a in all_articles if a[0] not in used_ids]
+
+    import random as rnd
+    random_pick = rnd.sample(random_articles, min(1, len(random_articles))) if random_articles else []
+
+    articles = g1_articles + g2_articles + random_pick
+
+    return render_template('index.html',
+        articles=articles,
+        page_title="RANDOM",
+        user=user,
+        genre1=genre1,
+        genre2=genre2,
+        g1_empty=(genre1 and not g1_articles),
+        g2_empty=(genre2 and not g2_articles)
+    )
+
+@app.route('/genre', methods=['GET', 'POST'])
+def genre():
+    user = get_current_user()
+    if not user:
+        return redirect('/login?next=/genre')
+    if request.method == 'POST':
+        g1 = request.form.get('genre1', '').strip()
+        g2 = request.form.get('genre2', '').strip()
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT OR REPLACE INTO user_genres (email, genre1, genre2) VALUES (?,?,?)", (user, g1, g2))
+        conn.commit()
+        conn.close()
+        return redirect('/')
+    g1, g2 = get_user_genres(user)
+    return render_template('genre.html', genre1=g1, genre2=g2, user=user)
 
 # ---------------- ホーム（無限ニュース）----------------
 @app.route('/home')
