@@ -33,7 +33,7 @@ class NewsManager:
             url = (
                 "https://gnews.io/api/v4/top-headlines"
                 "?country=jp&lang=ja&max=10"
-                f"&apikey={GNEWS_API_KEY}"
+                f"&token={GNEWS_API_KEY}"
             )
             req = urllib.request.Request(url, headers={"User-Agent": "NewsApp/1.0"})
             with urllib.request.urlopen(req, timeout=10) as res:
