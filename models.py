@@ -1,0 +1,23 @@
+import sqlite3
+import os
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'news_app.db')
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # 記事テーブル
+    c.execute('''CREATE TABLE IF NOT EXISTS articles
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  title TEXT, 
+                  source TEXT,
+                  link TEXT UNIQUE, 
+                  is_read BOOLEAN DEFAULT 0,
+                  is_saved BOOLEAN DEFAULT 0,
+                  summary TEXT,
+                  fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    # 設定テーブル（最終更新時刻を記録）
+    c.execute('''CREATE TABLE IF NOT EXISTS settings
+                 (key TEXT PRIMARY KEY, value TEXT)''')
+    conn.commit()
+    conn.close()

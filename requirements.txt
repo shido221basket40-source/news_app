@@ -1,0 +1,4 @@
+flask
+feedparser
+openai
+gunicorn

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <title>Minimalist Trio</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: serif;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #menu-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 200;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        #ai-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 200;
+            width: 84px;
+            height: 30px;
+            line-height: 30px;
+            box-sizing: border-box;
+            border: 1px solid #00f2ff;
+            border-radius: 20px;
+            background: rgba(0, 242, 255, 0.1);
+            color: #00f2ff;
+            font-size: 0.7rem;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        #ai-btn.loading {
+            pointer-events: none;
+            opacity: 0.6;
+            color: transparent;
+        }
+
+        #ai-btn.loading::after {
+            content: "";
+            width: 12px;
+            height: 12px;
+            border: 2px solid #00f2ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            margin-left: -6px;
+            margin-top: -6px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        body.loading {
+            pointer-events: none;
+        }
+
+        .card {
+            position: absolute;
+            top: 10%;
+            left: 5%;
+            width: 90%;
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px;
+            box-sizing: border-box;
+            background: #000;
+            border: 1px solid #333;
+            transition: transform 0.4s ease, opacity 0.3s ease;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .card.active {
+            visibility: visible;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        .is-home.is-read .status-badge {
+            color: #00ff88 !important;
+            border: 1px solid #00ff88 !important;
+            font-weight: bold;
+        }
+
+        .is-saved-page .title {
+            color: #fff !important;
+        }
+
+        .source {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .title {
+            font-size: 1.6rem;
+            line-height: 1.6;
+            color: #fff;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .status-badge {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border: 1px solid #333;
+            color: #555;
+        }
+
+        .saved-label {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.7rem;
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            padding: 4px 8px;
+            display: none;
+        }
+
+        .has-saved-mark .saved-label {
+            display: block !important;
+        }
+
+        .delete-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #ff4444;
+            border: 1px solid #ff4444;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            z-index: 200;
+            cursor: pointer;
+        }
+
+        #side-menu {
+            position: fixed;
+            left: -260px;
+            width: 250px;
+            height: 100%;
+            background: #111;
+            z-index: 300;
+            transition: 0.3s;
+            padding-top: 60px;
+        }
+
+        #side-menu a {
+            display: block;
+            padding: 20px;
+            color: #fff;
+            text-decoration: none;
+            border-bottom: 1px solid #222;
+        }
+
+        .how-to {
+            padding: 20px;
+            color: #888;
+            font-size: 0.75rem;
+            line-height: 1.8;
+            border-top: 1px solid #222;
+            margin-top: 10px;
+        }
+
+        .auth-links {
+            position: absolute;
+            left: 0;
+            bottom: 20px;
+            width: 100%;
+        }
+
+        .auth-links a {
+            display: block;
+            padding: 16px 20px;
+            color: #00f2ff !important;
+            text-decoration: none;
+            border-top: 1px solid #222;
+            border-bottom: none !important;
+        }
+
+        .auth-links {
+    position: absolute;
+    left: 0;
+    bottom: 20px;
+    width: 100%;
+}
+
+.auth-links a {
+    display: block;
+    padding: 16px 20px;
+    color: #00f2ff !important;
+    text-decoration: none;
+    border-top: 1px solid #222;
+    border-bottom: none !important;
+}
+
+.login-status {
+    padding: 16px 20px 8px 20px;
+    color: #888;
+    font-size: 0.8rem;
+    border-top: 1px solid #222;
+}
+
+    </style>
+</head>
+
+<body>
+    <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    <div id="ai-btn" onclick="askAI()">AI要約</div>
+
+    <div id="side-menu">
+    <a href="/">HOME</a>
+    <a href="/saved">SAVED</a>
+
+    <div class="how-to">
+        【操作方法】<br>
+        ・タップ：記事を読む（既読）<br>
+        ・上スワイプ：保存する（ログイン必要）<br>
+        ・左右スワイプ：記事をめくる<br>
+        ・AI要約：内容を確認
+    </div>
+
+    <div class="auth-links">
+        {% if logged_in %}
+            <div class="login-status">ログイン中: {{ username }}</div>
+            <a href="/logout">ログアウト</a>
+        {% else %}
+            <a href="/login">ログイン</a>
+            <a href="/register">新規登録</a>
+        {% endif %}
+    </div>
+</div>
+
+    <div class="container" id="swipe-area">
+        {% for a in articles %}
+        <div class="card {{ 'active' if loop.first else '' }}
+            {{ 'is-read' if a[4] else '' }}
+            {{ 'is-home' if page_title == 'HOME' else 'is-saved-page' }}
+            {{ 'has-saved-mark' if a[5] and page_title == 'HOME' else '' }}"
+     data-id="{{ a[0] }}">
+            <div class="source">{{ a[2] }}</div>
+            <div class="title" onclick="openAndMarkAsRead(this, '{{ a[0] }}')">{{ a[1] }}</div>
+
+            <div class="status-badge">{{ '既読' if a[4] else '未読' }}</div>
+
+            {% if page_title == "SAVED" %}
+            <div class="delete-btn" onclick="location.href='/delete/{{ a[0] }}'">✕ 削除</div>
+            {% else %}
+            <div class="saved-label">保存済み</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        let cards = document.querySelectorAll('.card');
+        let currentIndex = 0;
+        let startX = 0, startY = 0, diffX = 0, diffY = 0;
+
+        window.onpageshow = function (e) {
+            if (e.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                location.reload();
+            }
+        };
+
+        function toggleMenu() {
+            let menu = document.getElementById('side-menu');
+            menu.style.left = (menu.style.left === '0px') ? '-260px' : '0px';
+        }
+
+        function setAsRead(card) {
+            card.classList.add('is-read');
+            card.querySelector('.status-badge').innerText = '既読';
+        }
+
+        function openAndMarkAsRead(el, id) {
+            if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) return;
+            const card = el.closest('.card');
+            setAsRead(card);
+            fetch("/read/" + id, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(() => { window.location.href = "/read/" + id; });
+        }
+
+        function askAI() {
+            const card = cards[currentIndex];
+            if (!card) return;
+
+            const aiBtn = document.getElementById("ai-btn");
+            if (aiBtn.classList.contains("loading")) return;
+
+            aiBtn.classList.add("loading");
+            document.body.classList.add("loading");
+
+            fetch("/summarize/" + card.dataset.id)
+                .then(res => res.text())
+                .then(text => {
+                    alert(text);
+                })
+                .catch(() => {
+                    alert("AI要約に失敗しました");
+                })
+                .finally(() => {
+                    aiBtn.classList.remove("loading");
+                    document.body.classList.remove("loading");
+                });
+        }
+
+        const area = document.getElementById('swipe-area');
+
+        area.addEventListener('touchstart', e => {
+            startX = e.touches[0].pageX;
+            startY = e.touches[0].pageY;
+            if (cards[currentIndex]) cards[currentIndex].style.transition = 'none';
+        });
+
+        area.addEventListener('touchmove', e => {
+            if (!cards[currentIndex]) return;
+            diffX = e.touches[0].pageX - startX;
+            diffY = e.touches[0].pageY - startY;
+            cards[currentIndex].style.transform = `translate(${diffX}px, ${diffY}px) rotate(${diffX / 20}deg)`;
+        });
+
+        function markAsSaved() {
+    const card = cards[currentIndex];
+    card.style.transform = "translateY(-150%)";
+
+    fetch("/save/" + card.dataset.id)
+        .then(res => {
+            if (res.status === 401) {
+                alert("保存するにはログインが必要です");
+                window.location.href = "/login";
+                throw new Error("login required");
+            }
+            return res.text();
+        })
+        .then(() => {
+            card.classList.add('has-saved-mark');
+            setTimeout(() => moveCard(1), 300);
+        })
+        .catch(() => {
+            card.style.transform = "translate(0,0) rotate(0)";
+        });
+}
+
+        area.addEventListener('touchend', () => {
+            if (!cards[currentIndex]) return;
+            if (diffY < -100) markAsSaved();
+            else if (Math.abs(diffX) > 100) moveCard(diffX < 0 ? 1 : -1);
+            else cards[currentIndex].style.transform = "translate(0,0) rotate(0)";
+            cards[currentIndex].style.transition = 'transform 0.4s ease';
+            setTimeout(() => { diffX = 0; diffY = 0; }, 50);
+        });
+
+        function moveCard(step) {
+            if (cards.length <= 1) {
+                if (cards[0]) cards[0].style.transform = "translate(0,0) rotate(0)";
+                return;
+            }
+            let prev = cards[currentIndex];
+            prev.classList.remove('active');
+            prev.style.transform = step > 0 ? "translateX(-150%)" : "translateX(150%)";
+            currentIndex = (currentIndex + step + cards.length) % cards.length;
+            let next = cards[currentIndex];
+            next.style.transition = "none";
+            next.style.transform = step > 0 ? "translateX(150%)" : "translateX(-150%)";
+            next.classList.add('active');
+            setTimeout(() => {
+                next.style.transition = "transform 0.4s ease";
+                next.style.transform = "translate(0,0) rotate(0)";
+            }, 10);
+        }
+
+        function markAsSaved() {
+            const card = cards[currentIndex];
+            card.style.transform = "translateY(-150%)";
+
+            fetch("/save/" + card.dataset.id)
+                .then(res => {
+                    if (res.status === 401) {
+                        alert("保存するにはログインが必要です");
+                        window.location.href = "/login";
+                        throw new Error("login required");
+                    }
+                    return res.text();
+                })
+                .then(() => {
+                    card.classList.add('has-saved-mark');
+                    setTimeout(() => moveCard(1), 300);
+                })
+                .catch(() => {
+                    card.style.transform = "translate(0,0) rotate(0)";
+                });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const menu = document.getElementById('side-menu');
+            if (menu.style.left === '0px') return;
+
+            switch (e.key) {
+                case 'ArrowRight':
+                    e.preventDefault();
+                    moveCard(1);
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    moveCard(-1);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    markAsSaved();
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    const card = cards[currentIndex];
+                    if (card) {
+                        const titleEl = card.querySelector('.title');
+                        openAndMarkAsRead(titleEl, card.dataset.id);
+                    }
+                    break;
+            }
+        });
+    </script>
+
+
+</body>
+
+</html>
