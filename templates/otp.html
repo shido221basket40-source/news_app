@@ -15,18 +15,62 @@
         .error { color: #ff4444; font-size: 0.8rem; margin-top: 15px; }
         .back { margin-top: 20px; text-align: center; font-size: 0.75rem; color: #555; cursor: pointer; }
         .back a { color: #555; text-decoration: none; }
+        .resend { margin-top: 20px; text-align: center; font-size: 0.75rem; color: #555; }
+        .resend a { color: #00f2ff; text-decoration: none; }
     </style>
 </head>
 <body>
     <div class="box">
         <h2>VERIFY</h2>
-        <div class="email">{{ email }} に送信しました</div>
+        <div class="email">{{ email }} に送信しました<br><span style="font-size:0.7rem;color:#444;">※迷惑メールフォルダも確認してください</span></div>
         <form method="POST" action="/otp">
             <input type="text" name="code" placeholder="000000" maxlength="6" required autofocus inputmode="numeric">
             <button type="submit">確認</button>
             {% if error %}<div class="error">{{ error }}</div>{% endif %}
         </form>
+        <div class="resend">
+            <span id="resend-timer">30秒後に再送信できます</span>
+            <a href="#" id="resend-link" style="display:none;" onclick="resendOTP()">再送信する</a>
+        </div>
         <div class="back"><a href="/login">← メールアドレスを変更</a></div>
     </div>
+    <script>
+        let seconds = 30;
+        const timer = document.getElementById('resend-timer');
+        const link = document.getElementById('resend-link');
+        const countdown = setInterval(() => {
+            seconds--;
+            if (seconds <= 0) {
+                clearInterval(countdown);
+                timer.style.display = 'none';
+                link.style.display = 'inline';
+            } else {
+                timer.textContent = seconds + '秒後に再送信できます';
+            }
+        }, 1000);
+
+        function resendOTP() {
+            link.textContent = '送信中...';
+            fetch('/resend-otp', { method: 'POST' })
+                .then(res => res.text())
+                .then(() => {
+                    link.style.display = 'none';
+                    timer.style.display = 'inline';
+                    timer.textContent = '送信しました。30秒後に再送信できます';
+                    seconds = 30;
+                    const newCountdown = setInterval(() => {
+                        seconds--;
+                        if (seconds <= 0) {
+                            clearInterval(newCountdown);
+                            timer.style.display = 'none';
+                            link.style.display = 'inline';
+                            link.textContent = '再送信する';
+                        } else {
+                            timer.textContent = seconds + '秒後に再送信できます';
+                        }
+                    }, 1000);
+                });
+        }
+    </script>
 </body>
 </html>

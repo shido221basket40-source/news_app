@@ -186,6 +186,25 @@ def otp():
         return redirect(next_url)
     return render_template('otp.html', email=email)
 
+# ---------------- OTP再送信 ----------------
+@app.route('/resend-otp', methods=['POST'])
+def resend_otp():
+    email = session.get('otp_email')
+    if not email:
+        return "NG", 400
+    code = str(random.randint(100000, 999999))
+    expires_at = int(time.time()) + 300
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+    conn.commit()
+    conn.close()
+    try:
+        send_otp_email(email, code)
+    except Exception as e:
+        return f"NG: {e}", 500
+    return "OK"
+
 # ---------------- ログアウト ----------------
 @app.route('/logout')
 def logout():
