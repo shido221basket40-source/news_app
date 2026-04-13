@@ -75,6 +75,13 @@ def index():
     conn.close()
     return render_template('index.html', articles=articles, page_title="RANDOM", user=get_current_user())
 
+# ---------------- ホーム（無限ニュース）----------------
+@app.route('/home')
+def home():
+    if not get_current_user():
+        return redirect('/login?next=/home')
+    return render_template('home.html', user=get_current_user())
+
 # ---------------- SAVED ----------------
 @app.route('/saved')
 def saved():

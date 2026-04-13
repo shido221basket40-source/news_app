@@ -46,17 +46,6 @@
         }
         #home-link:hover { color: #fff; }
 
-        #filter-btn {
-            position: absolute;
-            top: 20px;
-            left: 160px;
-            z-index: 200;
-            font-size: 1.1rem;
-            cursor: pointer;
-            color: #555;
-            transition: color 0.2s;
-        }
-        #filter-btn:hover { color: #00f2ff; }
 
         #ai-btn {
             position: absolute;
@@ -236,16 +225,17 @@ body.loading {
 <body>
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
     <a href="/" id="home-link">HOME / RANDOM</a>
-    <div id="filter-btn" onclick="goFilter()">⚙</div>
     <div id="ai-btn" onclick="askAI()">AI要約</div>
 
     <div id="side-menu">
-        <a href="/">RANDOM</a>
-        <a href="/saved">SAVED</a>
+        <a href="/home">ホーム</a>
         {% if user %}
-        <a href="/logout" style="color:#ff4444;border-top:1px solid #222;">ログアウト</a>
-        <div style="padding:10px 20px;color:#555;font-size:0.7rem;">{{ user }}</div>
+        <a href="/">RANDOM</a>
+        <a href="/saved">保存</a>
+        <a href="/logout" style="color:#ff4444;">ログアウト</a>
         {% else %}
+        <a href="/login?next=/" onclick="return confirmLogin()">🔒 RANDOM</a>
+        <a href="/saved">保存</a>
         <a href="/login" style="color:#00f2ff;">ログイン</a>
         {% endif %}
         <div class="how-to">
@@ -254,7 +244,7 @@ body.loading {
             ・上スワイプ / ↑：保存する<br>
             ・左右スワイプ / ←→：記事をめくる<br>
             ・AI要約：内容を確認（既読）<br><br>
-            ログインすると絞り込みが解放されます
+            ログインすると絞り込みとRANDOMニュースが解放されます
         </div>
     </div>
 
@@ -301,6 +291,10 @@ body.loading {
                 menu.style.left = '0px';
                 overlay.style.display = 'block';
             }
+        }
+        function confirmLogin() {
+            alert('ログインしてください');
+            return true;
         }
         function goFilter() {
             {% if user %}
