@@ -150,7 +150,7 @@ def saved():
         return redirect('/login?next=/saved')
     conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles WHERE is_saved = 1 ORDER BY id DESC")
+    c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles WHERE is_saved = TRUE ORDER BY id DESC" if is_postgres() else "SELECT id, title, source, link, is_read, is_saved FROM articles WHERE is_saved = 1 ORDER BY id DESC")
     articles = c.fetchall()
     conn.close()
     return render_template('index.html', articles=articles, page_title="SAVED", user=get_current_user())
@@ -162,7 +162,7 @@ def save_article(article_id):
         return jsonify({"error": "login_required"}), 401
     conn = get_conn()
     c = conn.cursor()
-    c.execute(pq("UPDATE articles SET is_saved = 1, is_read = 1 WHERE id = ?"), (article_id,))
+    c.execute("UPDATE articles SET is_saved = TRUE, is_read = TRUE WHERE id = %s" if is_postgres() else "UPDATE articles SET is_saved = 1, is_read = 1 WHERE id = ?", (article_id,))
     conn.commit()
     conn.close()
     return "OK"
@@ -174,7 +174,7 @@ def delete_article(article_id):
         return redirect('/login')
     conn = get_conn()
     c = conn.cursor()
-    c.execute(pq("UPDATE articles SET is_saved = 0 WHERE id = ?"), (article_id,))
+    c.execute("UPDATE articles SET is_saved = FALSE WHERE id = %s" if is_postgres() else "UPDATE articles SET is_saved = 0 WHERE id = ?", (article_id,))
     conn.commit()
     conn.close()
     return redirect('/saved')
@@ -205,7 +205,7 @@ def summarize(article_id):
         conn.close()
         return "記事が見つかりませんでした", 404
     title = res[0]
-    c.execute(pq("UPDATE articles SET is_saved = 1 WHERE id = ?"), (article_id,))
+    c.execute("UPDATE articles SET is_saved = TRUE WHERE id = %s" if is_postgres() else "UPDATE articles SET is_saved = 1 WHERE id = ?", (article_id,))
     conn.commit()
     conn.close()
     prompt = f"次のニュース記事タイトルに関する3点要約を日本語で出力してください：『{title}』"
