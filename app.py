@@ -1,14 +1,13 @@
 from flask import Flask, render_template, redirect, request, session, jsonify
 import hashlib
 import secrets
-import sqlite3
 import os
 import random
 import time
 import sendgrid
 from sendgrid.helpers.mail import Mail
 from services import NewsManager
-from models import init_db, DB_PATH
+from models import init_db, get_conn, is_postgres, ph
 
 # .envファイルがあれば読み込む
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -26,6 +25,12 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
 init_db()
+
+def pq(sql):
+    """SQLiteの?をPostgreSQLの%sに変換"""
+    if is_postgres():
+        return sql.replace('?', '%s')
+    return sql
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@example.com")
@@ -50,7 +55,7 @@ UPDATE_MINUTE = 30
 def should_fetch():
     import datetime
     now = datetime.datetime.now()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute("SELECT value FROM settings WHERE key='last_fetch'")
     row = c.fetchone()
@@ -65,9 +70,9 @@ def should_fetch():
     return False
 
 def get_user_genres(email):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT genre1, genre2 FROM user_genres WHERE email=?", (email,))
+    c.execute(pq("SELECT genre1, genre2 FROM user_genres WHERE email=?"), (email,))
     row = c.fetchone()
     conn.close()
     return row if row else ('', '')
@@ -83,7 +88,7 @@ def index():
     user = get_current_user()
     if should_fetch():
         NewsManager.fetch_and_store()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles ORDER BY id DESC")
     all_articles = c.fetchall()
@@ -129,9 +134,9 @@ def genre():
     if request.method == 'POST':
         g1 = request.form.get('genre1', '').strip()
         g2 = request.form.get('genre2', '').strip()
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("INSERT OR REPLACE INTO user_genres (email, genre1, genre2) VALUES (?,?,?)", (user, g1, g2))
+        c.execute("INSERT INTO user_genres (email, genre1, genre2) VALUES (%s,%s,%s) ON CONFLICT (email) DO UPDATE SET genre1=EXCLUDED.genre1, genre2=EXCLUDED.genre2" if is_postgres() else "INSERT OR REPLACE INTO user_genres (email, genre1, genre2) VALUES (?,?,?)", (user, g1, g2))
         conn.commit()
         conn.close()
         return redirect('/')
@@ -143,7 +148,7 @@ def genre():
 def saved():
     if not get_current_user():
         return redirect('/login?next=/saved')
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute("SELECT id, title, source, link, is_read, is_saved FROM articles WHERE is_saved = 1 ORDER BY id DESC")
     articles = c.fetchall()
@@ -155,9 +160,9 @@ def saved():
 def save_article(article_id):
     if not get_current_user():
         return jsonify({"error": "login_required"}), 401
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE articles SET is_saved = 1, is_read = 1 WHERE id = ?", (article_id,))
+    c.execute(pq("UPDATE articles SET is_saved = 1, is_read = 1 WHERE id = ?"), (article_id,))
     conn.commit()
     conn.close()
     return "OK"
@@ -167,9 +172,9 @@ def save_article(article_id):
 def delete_article(article_id):
     if not get_current_user():
         return redirect('/login')
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE articles SET is_saved = 0 WHERE id = ?", (article_id,))
+    c.execute(pq("UPDATE articles SET is_saved = 0 WHERE id = ?"), (article_id,))
     conn.commit()
     conn.close()
     return redirect('/saved')
@@ -177,14 +182,14 @@ def delete_article(article_id):
 # ---------------- 記事を読む ----------------
 @app.route('/read/<int:article_id>')
 def read(article_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        c.execute("UPDATE articles SET is_read = 1 WHERE id = ?", (article_id,))
+        c.execute(pq("UPDATE articles SET is_read = 1 WHERE id = ?"), (article_id,))
         conn.commit()
         conn.close()
         return "OK"
-    c.execute("SELECT link FROM articles WHERE id = ?", (article_id,))
+    c.execute(pq("SELECT link FROM articles WHERE id = ?"), (article_id,))
     res = c.fetchone()
     conn.close()
     return redirect(res[0]) if res else redirect('/')
@@ -192,15 +197,15 @@ def read(article_id):
 # ---------------- AI要約 ----------------
 @app.route('/summarize/<int:article_id>')
 def summarize(article_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("SELECT title FROM articles WHERE id = ?", (article_id,))
+    c.execute(pq("SELECT title FROM articles WHERE id = ?"), (article_id,))
     res = c.fetchone()
     if not res:
         conn.close()
         return "記事が見つかりませんでした", 404
     title = res[0]
-    c.execute("UPDATE articles SET is_saved = 1 WHERE id = ?", (article_id,))
+    c.execute(pq("UPDATE articles SET is_saved = 1 WHERE id = ?"), (article_id,))
     conn.commit()
     conn.close()
     prompt = f"次のニュース記事タイトルに関する3点要約を日本語で出力してください：『{title}』"
@@ -212,9 +217,9 @@ def summarize(article_id):
         summary = response.choices[0].message.content.strip()
     except Exception as e:
         return f"AI要約中にエラーが発生しました: {e}", 500
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("UPDATE articles SET summary = ? WHERE id = ?", (summary, article_id))
+    c.execute(pq("UPDATE articles SET summary = ? WHERE id = ?"), (summary, article_id))
     conn.commit()
     conn.close()
     return f"【AI要約】\n{summary}"
@@ -238,9 +243,9 @@ def login():
             # OTPモード
             code = str(random.randint(100000, 999999))
             expires_at = int(time.time()) + 300
-            conn = sqlite3.connect(DB_PATH)
+            conn = get_conn()
             c = conn.cursor()
-            c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+            c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (%s, %s, %s)" if is_postgres() else "INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
             conn.commit()
             conn.close()
             try:
@@ -254,16 +259,19 @@ def login():
             # パスワードモード
             if not password:
                 return render_template('login.html', error="パスワードを入力してください", next=next_url)
-            conn = sqlite3.connect(DB_PATH)
+            conn = get_conn()
             c = conn.cursor()
-            c.execute("SELECT password_hash FROM users WHERE email=?", (email,))
+            c.execute(pq("SELECT password_hash FROM users WHERE email=?"), (email,))
             row = c.fetchone()
             conn.close()
             if not row:
                 # 未登録→新規登録ページへメール引き継ぎ
                 return redirect(f'/register?email={email}')
             if not row[0]:
-                return render_template('login.html', error="パスワードが設定されていません。新規登録からパスワードを設定してください", next=next_url)
+                # パスワード未設定→OTPでログインしてパスワード設定を促す
+                return render_template('login.html', 
+                    error="パスワードが設定されていません。「メールでコードを送る」からログインしてパスワードを設定してください", 
+                    next=next_url)
             if row[0] != hash_password(password):
                 return render_template('login.html', error="パスワードが違います", next=next_url)
             session['user_email'] = email
@@ -284,9 +292,9 @@ def set_password():
             return render_template('set_password.html', error="6文字以上で入力してください")
         if pw != pw2:
             return render_template('set_password.html', error="パスワードが一致しません")
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("UPDATE users SET password_hash=? WHERE email=?", (hash_password(pw), user))
+        c.execute(pq("UPDATE users SET password_hash=? WHERE email=?"), (hash_password(pw), user))
         conn.commit()
         conn.close()
         return render_template('set_password.html', success="パスワードを設定しました")
@@ -299,16 +307,16 @@ def reset_password():
         email = request.form.get('email', '').strip()
         if not email:
             return render_template('reset_password.html', error="メールアドレスを入力してください")
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        c.execute(pq("SELECT id FROM users WHERE email=?"), (email,))
         row = c.fetchone()
         if not row:
             conn.close()
             return render_template('reset_password.html', error="このメールアドレスは登録されていません")
         token = secrets.token_urlsafe(32)
         expires_at = int(time.time()) + 1800  # 30分
-        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, f"RESET:{token}", expires_at))
+        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (%s, %s, %s)" if is_postgres() else "INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, f"RESET:{token}", expires_at))
         conn.commit()
         conn.close()
         reset_url = request.host_url + "reset-password/confirm?token=" + token + "&email=" + email
@@ -338,16 +346,16 @@ def reset_password_confirm():
             return render_template('reset_confirm.html', error="6文字以上で入力してください", token=token, email=email)
         if pw != pw2:
             return render_template('reset_confirm.html', error="パスワードが一致しません", token=token, email=email)
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>?",
+        c.execute(pq("SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>?"),
                   (email, f"RESET:{token}", int(time.time())))
         row = c.fetchone()
         if not row:
             conn.close()
             return render_template('reset_confirm.html', error="リンクが無効か期限切れです", token=token, email=email)
-        c.execute("UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
-        c.execute("UPDATE users SET password_hash=? WHERE email=?", (hash_password(pw), email))
+        c.execute(pq("UPDATE otp_codes SET used=1 WHERE id=?"), (row[0],))
+        c.execute(pq("UPDATE users SET password_hash=? WHERE email=?"), (hash_password(pw), email))
         conn.commit()
         conn.close()
         return redirect('/login')
@@ -361,7 +369,7 @@ def otp():
         return redirect('/login')
     if request.method == 'POST':
         code = request.form.get('code', '').strip()
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
         c.execute("""SELECT id FROM otp_codes 
                      WHERE email=? AND code=? AND used=0 AND expires_at>?
@@ -371,12 +379,12 @@ def otp():
         if not row:
             conn.close()
             return render_template('otp.html', error="コードが違うか期限切れです", email=email)
-        c.execute("UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
-        c.execute("INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
+        c.execute(pq("UPDATE otp_codes SET used=1 WHERE id=?"), (row[0],))
+        c.execute("INSERT INTO users (email) VALUES (%s) ON CONFLICT (email) DO NOTHING" if is_postgres() else "INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
         # 新規登録時はパスワードも保存
         reg_pw = session.pop('register_password', None)
         if reg_pw:
-            c.execute("UPDATE users SET password_hash=? WHERE email=?", (reg_pw, email))
+            c.execute(pq("UPDATE users SET password_hash=? WHERE email=?"), (reg_pw, email))
         conn.commit()
         conn.close()
         session['user_email'] = email
@@ -402,9 +410,9 @@ def register():
             return render_template('register.html', error="パスワードが一致しません", email=email)
 
         # 既存ユーザーチェック
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        c.execute(pq("SELECT id FROM users WHERE email=?"), (email,))
         if c.fetchone():
             conn.close()
             return render_template('register.html', error="このメールアドレスはすでに登録されています", email=email)
@@ -413,9 +421,9 @@ def register():
         # OTP送信
         code = str(random.randint(100000, 999999))
         expires_at = int(time.time()) + 300
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_conn()
         c = conn.cursor()
-        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+        c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (%s, %s, %s)" if is_postgres() else "INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
         conn.commit()
         conn.close()
         try:
@@ -438,9 +446,9 @@ def resend_otp():
         return "NG", 400
     code = str(random.randint(100000, 999999))
     expires_at = int(time.time()) + 300
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
-    c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
+    c.execute("INSERT INTO otp_codes (email, code, expires_at) VALUES (%s, %s, %s)" if is_postgres() else "INSERT INTO otp_codes (email, code, expires_at) VALUES (?, ?, ?)", (email, code, expires_at))
     conn.commit()
     conn.close()
     try:

@@ -3,3 +3,4 @@ feedparser
 openai
 gunicorn
 sendgrid
+psycopg2-binary
