@@ -371,9 +371,9 @@ def otp():
         code = request.form.get('code', '').strip()
         conn = get_conn()
         c = conn.cursor()
-        c.execute("""SELECT id FROM otp_codes 
+        c.execute(pq("""SELECT id FROM otp_codes 
                      WHERE email=? AND code=? AND used=0 AND expires_at>?
-                     ORDER BY id DESC LIMIT 1""",
+                     ORDER BY id DESC LIMIT 1"""),
                   (email, code, int(time.time())))
         row = c.fetchone()
         if not row:
