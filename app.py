@@ -356,7 +356,7 @@ def reset_password_confirm():
         if not row:
             conn.close()
             return render_template('reset_confirm.html', error="リンクが無効か期限切れです", token=token, email=email)
-        c.execute(pq("UPDATE otp_codes SET used=1 WHERE id=?"), (row[0],))
+        c.execute("UPDATE otp_codes SET used=TRUE WHERE id=%s" if is_postgres() else "UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
         c.execute(pq("UPDATE users SET password_hash=? WHERE email=?"), (hash_password(pw), email))
         conn.commit()
         conn.close()
@@ -381,7 +381,7 @@ def otp():
         if not row:
             conn.close()
             return render_template('otp.html', error="コードが違うか期限切れです", email=email)
-        c.execute(pq("UPDATE otp_codes SET used=1 WHERE id=?"), (row[0],))
+        c.execute("UPDATE otp_codes SET used=TRUE WHERE id=%s" if is_postgres() else "UPDATE otp_codes SET used=1 WHERE id=?", (row[0],))
         c.execute("INSERT INTO users (email) VALUES (%s) ON CONFLICT (email) DO NOTHING" if is_postgres() else "INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
         # 新規登録時はパスワードも保存
         reg_pw = session.pop('register_password', None)
