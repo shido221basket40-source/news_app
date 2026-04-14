@@ -348,8 +348,10 @@ def reset_password_confirm():
             return render_template('reset_confirm.html', error="パスワードが一致しません", token=token, email=email)
         conn = get_conn()
         c = conn.cursor()
-        c.execute(pq("SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>?"),
-                  (email, f"RESET:{token}", int(time.time())))
+        sql2 = ("SELECT id FROM otp_codes WHERE email=%s AND code=%s AND used=FALSE AND expires_at>%s"
+                if is_postgres() else
+                "SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>?")
+        c.execute(sql2, (email, f"RESET:{token}", int(time.time())))
         row = c.fetchone()
         if not row:
             conn.close()
@@ -371,10 +373,10 @@ def otp():
         code = request.form.get('code', '').strip()
         conn = get_conn()
         c = conn.cursor()
-        c.execute(pq("""SELECT id FROM otp_codes 
-                     WHERE email=? AND code=? AND used=0 AND expires_at>?
-                     ORDER BY id DESC LIMIT 1"""),
-                  (email, code, int(time.time())))
+        sql = ("SELECT id FROM otp_codes WHERE email=%s AND code=%s AND used=FALSE AND expires_at>%s ORDER BY id DESC LIMIT 1"
+               if is_postgres() else
+               "SELECT id FROM otp_codes WHERE email=? AND code=? AND used=0 AND expires_at>? ORDER BY id DESC LIMIT 1")
+        c.execute(sql, (email, code, int(time.time())))
         row = c.fetchone()
         if not row:
             conn.close()
